@@ -1,0 +1,26 @@
+modLoader="javafml"
+loaderVersion="[4,)"
+license="All Rights Reserved"
+
+[[mods]]
+modId="tharidiathings"
+version="1.0.0"
+displayName="Tharidia Things - Weight System"
+description='''
+Item weight system that affects player movement based on inventory load.
+'''
+authors="THproject"
+
+[[dependencies.tharidiathings]]
+    modId="neoforge"
+    type="required"
+    versionRange="[21.1,)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.tharidiathings]]
+    modId="minecraft"
+    type="required"
+    versionRange="[1.21.1,1.22)"
+    ordering="NONE"
+    side="BOTH"
