@@ -1,24 +1,38 @@
 modLoader="javafml"
 loaderVersion="[4,)"
-license="All Rights Reserved"
+license="GNU v3"
 
 [[mods]]
-modId="tharidiathings"
-version="1.0.0"
-displayName="Tharidia Things - Weight System"
+modId="tharidia_simpleweight"
+version="0.1.0-alpha"
+displayName="Tharidia: Simple Weight"
+logoFile="logo.png"
+credits="Frenk02, The Tharidia Team"
 description='''
-Item weight system that affects player movement based on inventory load.
-'''
-authors="THproject"
+⚠️ ALPHA - Under Active Development
 
-[[dependencies.tharidiathings]]
+A lightweight weight system for the Tharidia medieval fantasy roleplay server.
+This mod is part of the Tharidia Project, a complex Minecraft roleplay experience set in a medieval world with fantasy elements.
+
+Features:
+- Dynamic weight calculation based on inventory items
+- Movement speed penalties for heavy loads
+- Swimming restrictions when overencumbered
+- Configurable weight values via datapacks
+- Master/OP bypass for server administrators
+
+Originally part of the main Tharidia Things mod, extracted for modular deployment alongside other Tharidia mods.
+'''
+authors="THproject Team"
+
+[[dependencies.tharidia_simpleweight]]
     modId="neoforge"
     type="required"
     versionRange="[21.1,)"
     ordering="NONE"
     side="BOTH"
 
-[[dependencies.tharidiathings]]
+[[dependencies.tharidia_simpleweight]]
     modId="minecraft"
     type="required"
     versionRange="[1.21.1,1.22)"

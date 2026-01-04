@@ -1,4 +1,4 @@
-package com.THproject.tharidia_things.weight;
+package com.THproject.tharidia_simpleweight.weight;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;

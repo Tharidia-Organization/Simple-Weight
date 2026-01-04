@@ -1,4 +1,4 @@
-package com.THproject.tharidia_things.weight;
+package com.THproject.tharidia_simpleweight.weight;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;

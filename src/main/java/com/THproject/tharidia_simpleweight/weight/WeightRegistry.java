@@ -1,4 +1,4 @@
-package com.THproject.tharidia_things.weight;
+package com.THproject.tharidia_simpleweight.weight;
 
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;

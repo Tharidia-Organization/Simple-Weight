@@ -289,7 +289,3 @@ idea {
     }
 }
 
-tasks.named('jar') {
-    archiveBaseName.set('TharidiaThings')
-    archiveVersion.set('')
-}

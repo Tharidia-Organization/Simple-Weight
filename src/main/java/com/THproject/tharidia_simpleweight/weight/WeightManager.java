@@ -1,6 +1,6 @@
-package com.THproject.tharidia_things.weight;
+package com.THproject.tharidia_simpleweight.weight;
 
-import com.THproject.tharidia_things.TharidiaThings;
+import com.THproject.tharidia_simpleweight.TharidiaSimpleWeight;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
@@ -125,7 +125,7 @@ public class WeightManager {
             return 0.0;
         } catch (Exception e) {
             // Log error but don't crash
-            TharidiaThings.LOGGER.error("Error calculating accessories weight", e);
+            TharidiaSimpleWeight.LOGGER.error("Error calculating accessories weight", e);
             return 0.0;
         }
     }
