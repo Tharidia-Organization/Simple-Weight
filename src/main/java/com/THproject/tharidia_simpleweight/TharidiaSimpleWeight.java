@@ -22,6 +22,9 @@ public class TharidiaSimpleWeight {
         // Register the weight debuff handler
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.register(com.THproject.tharidia_simpleweight.event.WeightDebuffHandler.class);
 
+        // Register the /weight command
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.register(com.THproject.tharidia_simpleweight.command.WeightCommand.class);
+
         LOGGER.info("Tharidia Simple Weight - Weight System Loaded");
     }
 

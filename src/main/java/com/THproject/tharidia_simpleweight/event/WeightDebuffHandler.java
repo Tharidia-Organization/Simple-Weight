@@ -111,6 +111,9 @@ public class WeightDebuffHandler {
     public static void onPlayerLogout(PlayerEvent.PlayerLoggedOutEvent event) {
         Player player = event.getEntity();
         removeWeightModifier(player);
+        if (player instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
+            WeightManager.clearTestMode(serverPlayer);
+        }
     }
 
     /**

@@ -16,16 +16,50 @@ import java.util.concurrent.ConcurrentHashMap;
  * Manages weight calculations for players
  */
 public class WeightManager {
-    
+
+    // Players (by UUID) who have opted into "test mode" via /weight testmode
+    // While enabled, weight restrictions apply to them even though they are OP
+    private static final Set<UUID> TEST_MODE_PLAYERS = ConcurrentHashMap.newKeySet();
+
     /**
      * Checks if a player should be exempt from weight restrictions
-     * Masters (OP level 2+) are exempt from weight
+     * Masters (OP level 2+) are exempt from weight, unless they enabled test mode
      */
     public static boolean isMaster(Player player) {
         if (player instanceof ServerPlayer serverPlayer) {
+            if (TEST_MODE_PLAYERS.contains(serverPlayer.getUUID())) {
+                return false;
+            }
             return serverPlayer.hasPermissions(2);
         }
         return false;
+    }
+
+    /**
+     * Toggles test mode for a player, returning the new state.
+     * When test mode is enabled, the weight system applies even to OP players.
+     */
+    public static boolean toggleTestMode(ServerPlayer player) {
+        UUID uuid = player.getUUID();
+        if (TEST_MODE_PLAYERS.remove(uuid)) {
+            return false;
+        }
+        TEST_MODE_PLAYERS.add(uuid);
+        return true;
+    }
+
+    /**
+     * Checks whether a player currently has test mode enabled
+     */
+    public static boolean isTestModeEnabled(ServerPlayer player) {
+        return TEST_MODE_PLAYERS.contains(player.getUUID());
+    }
+
+    /**
+     * Clears test mode state (e.g. on logout)
+     */
+    public static void clearTestMode(ServerPlayer player) {
+        TEST_MODE_PLAYERS.remove(player.getUUID());
     }
     
     /**
