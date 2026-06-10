@@ -14,18 +14,21 @@ public class WeightData {
         instance.group(
             Codec.unboundedMap(Codec.STRING, Codec.DOUBLE).fieldOf("item_weights").forGetter(d -> d.itemWeights),
             WeightThresholds.CODEC.fieldOf("thresholds").forGetter(d -> d.thresholds),
-            WeightDebuffs.CODEC.fieldOf("debuffs").forGetter(d -> d.debuffs)
+            WeightDebuffs.CODEC.fieldOf("debuffs").forGetter(d -> d.debuffs),
+            Codec.DOUBLE.optionalFieldOf("weight_multiplier", 1.0).forGetter(d -> d.weightMultiplier)
         ).apply(instance, WeightData::new)
     );
-    
+
     private final Map<String, Double> itemWeights;
     private final WeightThresholds thresholds;
     private final WeightDebuffs debuffs;
-    
-    public WeightData(Map<String, Double> itemWeights, WeightThresholds thresholds, WeightDebuffs debuffs) {
+    private final double weightMultiplier;
+
+    public WeightData(Map<String, Double> itemWeights, WeightThresholds thresholds, WeightDebuffs debuffs, double weightMultiplier) {
         this.itemWeights = itemWeights;
         this.thresholds = thresholds;
         this.debuffs = debuffs;
+        this.weightMultiplier = weightMultiplier;
     }
     
     public double getItemWeight(ResourceLocation itemId) {
@@ -42,6 +45,10 @@ public class WeightData {
     
     public WeightDebuffs getDebuffs() {
         return debuffs;
+    }
+
+    public double getWeightMultiplier() {
+        return weightMultiplier;
     }
     
     /**

@@ -57,6 +57,16 @@ public class WeightRegistry {
     }
     
     /**
+     * Gets the global weight multiplier applied to total carried weight
+     */
+    public static double getWeightMultiplier() {
+        if (weightData == null) {
+            return 1.0;
+        }
+        return weightData.getWeightMultiplier();
+    }
+
+    /**
      * Gets the current weight debuffs configuration
      */
     public static WeightData.WeightDebuffs getDebuffs() {

@@ -100,7 +100,7 @@ public class WeightDataLoader extends SimpleJsonResourceReloadListener {
                 true    // overencumbered disable swim up
             );
             
-            WeightData defaultData = new WeightData(defaultWeights, thresholds, debuffs);
+            WeightData defaultData = new WeightData(defaultWeights, thresholds, debuffs, 1.0);
             WeightRegistry.setWeightData(defaultData);
             
             LOGGER.info("Loaded default weight configuration");

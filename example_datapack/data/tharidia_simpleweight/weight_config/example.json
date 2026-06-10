@@ -1,0 +1,38 @@
+{
+  "item_weights": {
+    "minecraft:stone": 2.0,
+    "minecraft:cobblestone": 2.0,
+    "minecraft:dirt": 1.0,
+    "minecraft:iron_ingot": 3.0,
+    "minecraft:gold_ingot": 4.0,
+    "minecraft:diamond": 5.0,
+    "minecraft:netherite_ingot": 6.0,
+    "minecraft:netherite_scrap": 6.0,
+    "minecraft:anvil": 50.0,
+    "minecraft:feather": 0.1,
+    "minecraft:iron_sword": 4.0,
+    "minecraft:iron_chestplate": 12.0,
+    "minecraft:iron_helmet": 6.0,
+    "minecraft:iron_leggings": 10.0,
+    "minecraft:iron_boots": 5.0,
+    "minecraft:diamond_chestplate": 16.0,
+    "minecraft:shield": 8.0,
+    "minecraft:water_bucket": 6.0,
+    "minecraft:totem_of_undying": 0.5
+  },
+  "thresholds": {
+    "light": 100.0,
+    "medium": 200.0,
+    "heavy": 300.0,
+    "overencumbered": 400.0
+  },
+  "debuffs": {
+    "light_speed_multiplier": 0.95,
+    "medium_speed_multiplier": 0.85,
+    "heavy_speed_multiplier": 0.70,
+    "overencumbered_speed_multiplier": 0.50,
+    "heavy_disable_swim_up": true,
+    "overencumbered_disable_swim_up": true
+  },
+  "weight_multiplier": 1.0
+}

@@ -5,6 +5,8 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.neoforged.neoforge.capabilities.Capabilities;
+import net.neoforged.neoforge.items.IItemHandler;
 
 /**
  * Manages weight calculations for players
@@ -44,28 +46,57 @@ public class WeightManager {
             if (!stack.isEmpty()) {
                 double itemWeight = WeightRegistry.getItemWeight(stack.getItem());
                 totalWeight += itemWeight * stack.getCount();
+                totalWeight += calculateBackpackWeight(stack);
             }
         }
-        
+
         // Armor slots (slots 36-39: boots, leggings, chestplate, helmet)
         for (ItemStack armorStack : inventory.armor) {
             if (!armorStack.isEmpty()) {
                 double itemWeight = WeightRegistry.getItemWeight(armorStack.getItem());
                 totalWeight += itemWeight * armorStack.getCount();
+                totalWeight += calculateBackpackWeight(armorStack);
             }
         }
-        
+
         // Offhand (slot 40)
         ItemStack offhandStack = inventory.offhand.get(0);
         if (!offhandStack.isEmpty()) {
             double itemWeight = WeightRegistry.getItemWeight(offhandStack.getItem());
             totalWeight += itemWeight * offhandStack.getCount();
+            totalWeight += calculateBackpackWeight(offhandStack);
         }
-        
+
         // Accessories mod slots (if present)
         totalWeight += calculateAccessoriesWeight(player);
-        
+
+        // Apply global weight multiplier from datapack config
+        totalWeight *= WeightRegistry.getWeightMultiplier();
+
         return totalWeight;
+    }
+
+    /**
+     * Calculates the weight of items stored inside a backpack-like item.
+     * Works generically with any item that exposes the NeoForge ItemHandler
+     * capability on its ItemStack (e.g. Sophisticated Backpacks, L2 Backpack,
+     * Simple Backpack), so no hard dependency on those mods is required.
+     */
+    private static double calculateBackpackWeight(ItemStack stack) {
+        IItemHandler handler = stack.getCapability(Capabilities.ItemHandler.ITEM);
+        if (handler == null) {
+            return 0.0;
+        }
+
+        double backpackWeight = 0.0;
+        for (int i = 0; i < handler.getSlots(); i++) {
+            ItemStack contained = handler.getStackInSlot(i);
+            if (!contained.isEmpty()) {
+                double itemWeight = WeightRegistry.getItemWeight(contained.getItem());
+                backpackWeight += itemWeight * contained.getCount();
+            }
+        }
+        return backpackWeight;
     }
     
     /**
@@ -114,6 +145,7 @@ public class WeightManager {
                     if (!stack.isEmpty()) {
                         double itemWeight = WeightRegistry.getItemWeight(stack.getItem());
                         accessoriesWeight += itemWeight * stack.getCount();
+                        accessoriesWeight += calculateBackpackWeight(stack);
                     }
                 }
             }
