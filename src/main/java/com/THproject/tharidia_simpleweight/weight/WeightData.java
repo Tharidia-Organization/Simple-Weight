@@ -15,7 +15,8 @@ public class WeightData {
             Codec.unboundedMap(Codec.STRING, Codec.DOUBLE).fieldOf("item_weights").forGetter(d -> d.itemWeights),
             WeightThresholds.CODEC.fieldOf("thresholds").forGetter(d -> d.thresholds),
             WeightDebuffs.CODEC.fieldOf("debuffs").forGetter(d -> d.debuffs),
-            Codec.DOUBLE.optionalFieldOf("weight_multiplier", 1.0).forGetter(d -> d.weightMultiplier)
+            Codec.DOUBLE.optionalFieldOf("weight_multiplier", 1.0).forGetter(d -> d.weightMultiplier),
+            Codec.BOOL.optionalFieldOf("smooth_transition", false).forGetter(d -> d.smoothTransition)
         ).apply(instance, WeightData::new)
     );
 
@@ -23,12 +24,18 @@ public class WeightData {
     private final WeightThresholds thresholds;
     private final WeightDebuffs debuffs;
     private final double weightMultiplier;
+    private final boolean smoothTransition;
 
     public WeightData(Map<String, Double> itemWeights, WeightThresholds thresholds, WeightDebuffs debuffs, double weightMultiplier) {
+        this(itemWeights, thresholds, debuffs, weightMultiplier, false);
+    }
+
+    public WeightData(Map<String, Double> itemWeights, WeightThresholds thresholds, WeightDebuffs debuffs, double weightMultiplier, boolean smoothTransition) {
         this.itemWeights = itemWeights;
         this.thresholds = thresholds;
         this.debuffs = debuffs;
         this.weightMultiplier = weightMultiplier;
+        this.smoothTransition = smoothTransition;
     }
     
     public double getItemWeight(ResourceLocation itemId) {
@@ -50,7 +57,49 @@ public class WeightData {
     public double getWeightMultiplier() {
         return weightMultiplier;
     }
-    
+
+    public boolean isSmoothTransition() {
+        return smoothTransition;
+    }
+
+    /**
+     * Gets the movement speed multiplier for a given total weight.
+     * If smooth_transition is enabled, linearly interpolates between
+     * the multipliers of adjacent thresholds instead of jumping
+     * instantly between the 4 weight steps.
+     */
+    public double getSpeedMultiplier(double weight) {
+        if (!smoothTransition) {
+            return debuffs.getSpeedMultiplier(thresholds.getStatus(weight));
+        }
+
+        double light = thresholds.getLight();
+        double medium = thresholds.getMedium();
+        double heavy = thresholds.getHeavy();
+        double overencumbered = thresholds.getOverencumbered();
+
+        double normalMult = 1.0;
+        double lightMult = debuffs.getSpeedMultiplier(WeightStatus.LIGHT);
+        double mediumMult = debuffs.getSpeedMultiplier(WeightStatus.MEDIUM);
+        double heavyMult = debuffs.getSpeedMultiplier(WeightStatus.HEAVY);
+        double overMult = debuffs.getSpeedMultiplier(WeightStatus.OVERENCUMBERED);
+
+        if (weight <= 0) return normalMult;
+        if (weight < light) return lerp(weight, 0, light, normalMult, lightMult);
+        if (weight < medium) return lerp(weight, light, medium, lightMult, mediumMult);
+        if (weight < heavy) return lerp(weight, medium, heavy, mediumMult, heavyMult);
+        if (weight < overencumbered) return lerp(weight, heavy, overencumbered, heavyMult, overMult);
+        return overMult;
+    }
+
+    private static double lerp(double weight, double rangeStart, double rangeEnd, double startValue, double endValue) {
+        if (rangeEnd <= rangeStart) {
+            return endValue;
+        }
+        double t = (weight - rangeStart) / (rangeEnd - rangeStart);
+        return startValue + t * (endValue - startValue);
+    }
+
     /**
      * Weight thresholds for different status levels
      */

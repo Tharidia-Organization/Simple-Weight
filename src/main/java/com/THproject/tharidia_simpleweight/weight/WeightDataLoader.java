@@ -4,13 +4,19 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.mojang.serialization.JsonOps;
+import net.minecraft.core.Holder;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.server.packs.resources.SimpleJsonResourceReloadListener;
+import net.minecraft.tags.TagKey;
 import net.minecraft.util.profiling.ProfilerFiller;
+import net.minecraft.world.item.Item;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -52,7 +58,8 @@ public class WeightDataLoader extends SimpleJsonResourceReloadListener {
                     .orElse(null);
                 
                 if (weightData != null) {
-                    WeightRegistry.setWeightData(weightData);
+                    WeightData expandedData = expandTags(weightData);
+                    WeightRegistry.setWeightData(expandedData);
                     LOGGER.info("Successfully loaded weight configuration from {}", location);
                     return; // Use first valid config
                 }
@@ -68,6 +75,50 @@ public class WeightDataLoader extends SimpleJsonResourceReloadListener {
         }
     }
     
+    /**
+     * Expands "#namespace:path" item tag entries in item_weights into their
+     * concrete item ids. Specific item entries always take precedence over
+     * tag-derived weights.
+     */
+    private WeightData expandTags(WeightData data) {
+        Map<String, Double> rawWeights = data.getItemWeights();
+        Map<String, Double> resolved = new HashMap<>();
+
+        // Direct item entries first, so they win over tag entries
+        for (Map.Entry<String, Double> entry : rawWeights.entrySet()) {
+            if (!entry.getKey().startsWith("#")) {
+                resolved.put(entry.getKey(), entry.getValue());
+            }
+        }
+
+        for (Map.Entry<String, Double> entry : rawWeights.entrySet()) {
+            String key = entry.getKey();
+            if (!key.startsWith("#")) {
+                continue;
+            }
+
+            ResourceLocation tagId = ResourceLocation.tryParse(key.substring(1));
+            if (tagId == null) {
+                LOGGER.warn("Invalid item tag '{}' in weight configuration", key);
+                continue;
+            }
+
+            TagKey<Item> tagKey = TagKey.create(Registries.ITEM, tagId);
+            var tag = BuiltInRegistries.ITEM.getTag(tagKey);
+            if (tag.isEmpty()) {
+                LOGGER.warn("Unknown item tag '{}' in weight configuration", key);
+                continue;
+            }
+
+            for (Holder<Item> itemHolder : tag.get()) {
+                ResourceLocation itemId = BuiltInRegistries.ITEM.getKey(itemHolder.value());
+                resolved.putIfAbsent(itemId.toString(), entry.getValue());
+            }
+        }
+
+        return new WeightData(resolved, data.getThresholds(), data.getDebuffs(), data.getWeightMultiplier(), data.isSmoothTransition());
+    }
+
     /**
      * Loads default weight configuration
      */

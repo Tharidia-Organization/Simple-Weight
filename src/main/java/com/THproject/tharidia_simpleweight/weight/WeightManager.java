@@ -212,8 +212,8 @@ public class WeightManager {
      * Gets the speed multiplier for a player based on their weight
      */
     public static double getSpeedMultiplier(Player player) {
-        WeightData.WeightStatus status = getPlayerWeightStatus(player);
-        return WeightRegistry.getDebuffs().getSpeedMultiplier(status);
+        double weight = calculatePlayerWeight(player);
+        return WeightRegistry.getSpeedMultiplier(weight);
     }
     
     /**

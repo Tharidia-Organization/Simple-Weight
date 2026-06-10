@@ -83,6 +83,17 @@ public class WeightRegistry {
     public static WeightData.WeightStatus getWeightStatus(double weight) {
         return getThresholds().getStatus(weight);
     }
+
+    /**
+     * Gets the movement speed multiplier for a given weight value.
+     * Smoothly interpolates between thresholds if smooth_transition is enabled.
+     */
+    public static double getSpeedMultiplier(double weight) {
+        if (weightData == null) {
+            return getDebuffs().getSpeedMultiplier(getWeightStatus(weight));
+        }
+        return weightData.getSpeedMultiplier(weight);
+    }
     
     /**
      * Checks if weight data is loaded
