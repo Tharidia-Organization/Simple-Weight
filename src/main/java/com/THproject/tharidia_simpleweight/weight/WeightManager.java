@@ -8,6 +8,10 @@ import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.items.IItemHandler;
 
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+
 /**
  * Manages weight calculations for players
  */
