@@ -105,6 +105,16 @@ public class WeightDebuffHandler {
     }
 
     /**
+     * Restore the player's persisted /weight testmode preference on login
+     */
+    @SubscribeEvent
+    public static void onPlayerLogin(PlayerEvent.PlayerLoggedInEvent event) {
+        if (event.getEntity() instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
+            WeightManager.loadTestMode(serverPlayer);
+        }
+    }
+
+    /**
      * Remove weight modifiers when player logs out
      */
     @SubscribeEvent

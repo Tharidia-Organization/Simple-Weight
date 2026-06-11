@@ -67,6 +67,26 @@ public class WeightRegistry {
     }
 
     /**
+     * Gets whether speed debuffs smoothly interpolate between thresholds
+     */
+    public static boolean isSmoothTransition() {
+        if (weightData == null) {
+            return false;
+        }
+        return weightData.isSmoothTransition();
+    }
+
+    /**
+     * Gets all configured item weights (resolved item ids to weight values)
+     */
+    public static java.util.Map<String, Double> getItemWeights() {
+        if (weightData == null) {
+            return java.util.Map.of();
+        }
+        return weightData.getItemWeights();
+    }
+
+    /**
      * Gets the current weight debuffs configuration
      */
     public static WeightData.WeightDebuffs getDebuffs() {

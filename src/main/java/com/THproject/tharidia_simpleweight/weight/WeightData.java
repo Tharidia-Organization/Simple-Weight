@@ -175,6 +175,13 @@ public class WeightData {
             this.overencumberedDisableSwimUp = overencumberedDisableSwimUp;
         }
         
+        public double getLightSpeedMultiplier() { return lightSpeedMultiplier; }
+        public double getMediumSpeedMultiplier() { return mediumSpeedMultiplier; }
+        public double getHeavySpeedMultiplier() { return heavySpeedMultiplier; }
+        public double getOverencumberedSpeedMultiplier() { return overencumberedSpeedMultiplier; }
+        public boolean isHeavyDisableSwimUp() { return heavyDisableSwimUp; }
+        public boolean isOverencumberedDisableSwimUp() { return overencumberedDisableSwimUp; }
+
         public double getSpeedMultiplier(WeightStatus status) {
             return switch (status) {
                 case LIGHT -> lightSpeedMultiplier;

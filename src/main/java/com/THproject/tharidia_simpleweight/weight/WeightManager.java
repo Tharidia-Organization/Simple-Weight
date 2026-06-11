@@ -21,6 +21,9 @@ public class WeightManager {
     // While enabled, weight restrictions apply to them even though they are OP
     private static final Set<UUID> TEST_MODE_PLAYERS = ConcurrentHashMap.newKeySet();
 
+    // Key used to persist test mode preference across logout/relog and server restarts
+    private static final String TEST_MODE_NBT_KEY = "tharidia_simpleweight_testmode";
+
     /**
      * Checks if a player should be exempt from weight restrictions
      * Masters (OP level 2+) are exempt from weight, unless they enabled test mode
@@ -41,11 +44,15 @@ public class WeightManager {
      */
     public static boolean toggleTestMode(ServerPlayer player) {
         UUID uuid = player.getUUID();
+        boolean enabled;
         if (TEST_MODE_PLAYERS.remove(uuid)) {
-            return false;
+            enabled = false;
+        } else {
+            TEST_MODE_PLAYERS.add(uuid);
+            enabled = true;
         }
-        TEST_MODE_PLAYERS.add(uuid);
-        return true;
+        player.getPersistentData().putBoolean(TEST_MODE_NBT_KEY, enabled);
+        return enabled;
     }
 
     /**
@@ -56,7 +63,19 @@ public class WeightManager {
     }
 
     /**
-     * Clears test mode state (e.g. on logout)
+     * Restores test mode state from the player's persistent data on login,
+     * so the preference set via /weight testmode survives relogging and
+     * server restarts.
+     */
+    public static void loadTestMode(ServerPlayer player) {
+        if (player.getPersistentData().getBoolean(TEST_MODE_NBT_KEY)) {
+            TEST_MODE_PLAYERS.add(player.getUUID());
+        }
+    }
+
+    /**
+     * Clears in-memory test mode state (e.g. on logout). The persisted
+     * preference is kept so it can be restored on the next login.
      */
     public static void clearTestMode(ServerPlayer player) {
         TEST_MODE_PLAYERS.remove(player.getUUID());
@@ -132,6 +151,8 @@ public class WeightManager {
             if (!contained.isEmpty()) {
                 double itemWeight = WeightRegistry.getItemWeight(contained.getItem());
                 backpackWeight += itemWeight * contained.getCount();
+                // Recurse to support backpacks nested inside other backpacks
+                backpackWeight += calculateBackpackWeight(contained);
             }
         }
         return backpackWeight;
