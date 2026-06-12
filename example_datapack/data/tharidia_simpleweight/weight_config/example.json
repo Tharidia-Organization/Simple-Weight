@@ -34,8 +34,15 @@
     "heavy_speed_multiplier": 0.70,
     "overencumbered_speed_multiplier": 0.50,
     "heavy_disable_swim_up": true,
-    "overencumbered_disable_swim_up": true
+    "overencumbered_disable_swim_up": true,
+    "heavy_disable_jump": false,
+    "overencumbered_disable_jump": false
   },
   "weight_multiplier": 1.0,
-  "smooth_transition": true
+  "smooth_transition": true,
+  "hud": {
+    "position": "bottom_left",
+    "x_offset": 0,
+    "y_offset": 0
+  }
 }

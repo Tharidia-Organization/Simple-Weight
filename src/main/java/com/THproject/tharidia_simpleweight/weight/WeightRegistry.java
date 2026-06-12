@@ -87,6 +87,16 @@ public class WeightRegistry {
     }
 
     /**
+     * Gets the HUD overlay configuration (anchor corner + pixel offsets)
+     */
+    public static WeightData.HudConfig getHudConfig() {
+        if (weightData == null) {
+            return WeightData.HudConfig.DEFAULT;
+        }
+        return weightData.getHudConfig();
+    }
+
+    /**
      * Gets the current weight debuffs configuration
      */
     public static WeightData.WeightDebuffs getDebuffs() {

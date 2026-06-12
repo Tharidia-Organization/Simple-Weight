@@ -22,8 +22,9 @@ public class WeightTooltipHandler {
             return;
         }
         
-        // Get the weight of the item
-        double weight = WeightRegistry.getItemWeight(stack.getItem());
+        // Get the weight of the item (with the global multiplier applied, so
+        // the tooltip matches what the item actually adds to carried weight)
+        double weight = WeightRegistry.getItemWeight(stack.getItem()) * WeightRegistry.getWeightMultiplier();
         
         // Add weight info right after the item name (index 1, after the name at index 0)
         if (!event.getToolTip().isEmpty()) {

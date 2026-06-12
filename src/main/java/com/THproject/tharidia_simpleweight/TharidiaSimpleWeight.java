@@ -44,13 +44,31 @@ public class TharidiaSimpleWeight {
     }
 
     private void registerPayloads(RegisterPayloadHandlersEvent event) {
-        PayloadRegistrar registrar = event.registrar(MODID).versioned("1");
+        PayloadRegistrar registrar = event.registrar(MODID).versioned("2");
         registrar.playToClient(
                 WeightConfigSyncPayload.TYPE,
                 WeightConfigSyncPayload.STREAM_CODEC,
                 (payload, context) -> context.enqueueWork(() ->
                         com.THproject.tharidia_simpleweight.weight.WeightRegistry.setWeightData(payload.toWeightData()))
         );
+        registrar.playToClient(
+                com.THproject.tharidia_simpleweight.network.TestModeSyncPayload.TYPE,
+                com.THproject.tharidia_simpleweight.network.TestModeSyncPayload.STREAM_CODEC,
+                (payload, context) -> context.enqueueWork(() ->
+                        com.THproject.tharidia_simpleweight.weight.WeightManager.setClientTestMode(payload.enabled()))
+        );
+    }
+
+    /**
+     * Datapack reload listeners run before the new tags are bound to the
+     * registries, so tag entries in item_weights resolve against stale data.
+     * Re-expand them here, once the tags are actually available.
+     */
+    @SubscribeEvent
+    public void onTagsUpdated(net.neoforged.neoforge.event.TagsUpdatedEvent event) {
+        if (event.shouldUpdateStaticData()) {
+            WeightDataLoader.onTagsUpdated();
+        }
     }
 
     /**

@@ -1,8 +1,13 @@
 package com.THproject.tharidia_simpleweight.event;
 
 import com.THproject.tharidia_simpleweight.TharidiaSimpleWeight;
+import com.THproject.tharidia_simpleweight.network.TestModeSyncPayload;
+import com.THproject.tharidia_simpleweight.weight.WeightData;
 import com.THproject.tharidia_simpleweight.weight.WeightManager;
+import com.THproject.tharidia_simpleweight.weight.WeightRegistry;
 import net.minecraft.resources.ResourceLocation;
+import net.neoforged.neoforge.event.entity.living.LivingEvent;
+import net.neoforged.neoforge.network.PacketDistributor;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
@@ -21,9 +26,6 @@ public class WeightDebuffHandler {
     private static final Logger LOGGER = LoggerFactory.getLogger(WeightDebuffHandler.class);
     private static final ResourceLocation WEIGHT_SPEED_MODIFIER_ID =
             ResourceLocation.fromNamespaceAndPath(TharidiaSimpleWeight.MODID, "weight_speed_penalty");
-
-    // Performance optimization: Check swimming every 5 ticks instead of every tick
-    private static final int SWIM_CHECK_INTERVAL = 5;
 
     // LARGE SERVER OPTIMIZATION: Stagger player processing to distribute load
     // Process only 1/5th of players per tick for weight updates
@@ -66,8 +68,11 @@ public class WeightDebuffHandler {
     }
 
     /**
-     * Prevent swimming up when overencumbered
-     * OPTIMIZED: Check only every SWIM_CHECK_INTERVAL ticks with player batching
+     * Prevent swimming up when heavy/overencumbered.
+     * Runs every tick on BOTH sides: the client is authoritative for its own
+     * movement, so blocking only on the server let the space bar still float
+     * the player upward. Jumping while standing on the bottom / shoreline is
+     * still allowed (onGround check). Cheap thanks to the cached weight status.
      */
     @SubscribeEvent
     public static void onPlayerSwim(EntityTickEvent.Pre event) {
@@ -75,33 +80,60 @@ public class WeightDebuffHandler {
             return;
         }
 
-        // Only check every SWIM_CHECK_INTERVAL ticks to reduce overhead
-        if (player.tickCount % SWIM_CHECK_INTERVAL != 0) {
+        // Only relevant while actually in water and not standing on the bottom
+        if (!player.isInWater() || player.onGround()) {
             return;
         }
 
-        // LARGE SERVER OPTIMIZATION: Batch players for swim checks too
-        int playerBatch = Math.abs(player.getUUID().hashCode() % PLAYER_BATCH_SIZE);
-        if ((player.tickCount / SWIM_CHECK_INTERVAL) % PLAYER_BATCH_SIZE != playerBatch) {
-            return; // Not this player's turn
-        }
-
-        if (player.level().isClientSide) {
+        if (isExemptFromMovementDebuffs(player)) {
             return;
         }
 
-        // Masters bypass weight system
-        if (WeightManager.isMaster(player)) {
-            return;
-        }
-
-        // Check if player is in water and trying to swim up
-        if (player.isInWater() && WeightManager.isSwimUpDisabled(player)) {
+        WeightData.WeightStatus status = WeightManager.getCachedWeightStatus(player);
+        if (WeightRegistry.getDebuffs().isSwimUpDisabled(status)) {
             // Prevent upward movement in water
             if (player.getDeltaMovement().y > 0) {
                 player.setDeltaMovement(player.getDeltaMovement().multiply(1, 0, 1));
             }
         }
+    }
+
+    /**
+     * Optionally cancel jumps when heavy/overencumbered
+     * (heavy_disable_jump / overencumbered_disable_jump in the datapack config).
+     * Useful with auto-jump/step-up mods.
+     */
+    @SubscribeEvent
+    public static void onLivingJump(LivingEvent.LivingJumpEvent event) {
+        if (!(event.getEntity() instanceof Player player)) {
+            return;
+        }
+
+        if (isExemptFromMovementDebuffs(player)) {
+            return;
+        }
+
+        WeightData.WeightStatus status = WeightManager.getCachedWeightStatus(player);
+        if (WeightRegistry.getDebuffs().isJumpDisabled(status)) {
+            // The jump event cannot be cancelled, so zero out the vertical boost
+            var delta = player.getDeltaMovement();
+            player.setDeltaMovement(delta.x, 0.0, delta.z);
+        }
+    }
+
+    /**
+     * Shared exemption check for the per-tick movement debuffs. On the server
+     * this respects test mode; on the client (where test mode is unknown) OPs
+     * are exempt, the server-side check remains authoritative.
+     */
+    private static boolean isExemptFromMovementDebuffs(Player player) {
+        if (player.isCreative() || player.isSpectator()) {
+            return true;
+        }
+        if (player.level().isClientSide) {
+            return player.hasPermissions(2) && !WeightManager.isClientTestMode();
+        }
+        return WeightManager.isMaster(player);
     }
 
     /**
@@ -111,6 +143,8 @@ public class WeightDebuffHandler {
     public static void onPlayerLogin(PlayerEvent.PlayerLoggedInEvent event) {
         if (event.getEntity() instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
             WeightManager.loadTestMode(serverPlayer);
+            PacketDistributor.sendToPlayer(serverPlayer,
+                new TestModeSyncPayload(WeightManager.isTestModeEnabled(serverPlayer)));
         }
     }
 

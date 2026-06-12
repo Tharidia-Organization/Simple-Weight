@@ -24,6 +24,17 @@ public class WeightManager {
     // Key used to persist test mode preference across logout/relog and server restarts
     private static final String TEST_MODE_NBT_KEY = "tharidia_simpleweight_testmode";
 
+    // Client-side mirror of the local player's test mode flag (synced via TestModeSyncPayload)
+    private static volatile boolean clientTestMode = false;
+
+    public static void setClientTestMode(boolean enabled) {
+        clientTestMode = enabled;
+    }
+
+    public static boolean isClientTestMode() {
+        return clientTestMode;
+    }
+
     /**
      * Checks if a player should be exempt from weight restrictions
      * Masters (OP level 2+) are exempt from weight, unless they enabled test mode
@@ -79,6 +90,8 @@ public class WeightManager {
      */
     public static void clearTestMode(ServerPlayer player) {
         TEST_MODE_PLAYERS.remove(player.getUUID());
+        SERVER_STATUS_CACHE.remove(player.getUUID());
+        CLIENT_STATUS_CACHE.remove(player.getUUID());
     }
     
     /**
@@ -126,6 +139,9 @@ public class WeightManager {
 
         // Accessories mod slots (if present)
         totalWeight += calculateAccessoriesWeight(player);
+
+        // Curios mod slots (if present)
+        totalWeight += calculateCuriosWeight(player);
 
         // Apply global weight multiplier from datapack config
         totalWeight *= WeightRegistry.getWeightMultiplier();
@@ -221,6 +237,76 @@ public class WeightManager {
         }
     }
     
+    /**
+     * Calculates weight from Curios mod slots (e.g. backpacks equipped in a
+     * curio "back" slot). Uses reflection to avoid a hard dependency.
+     */
+    private static double calculateCuriosWeight(Player player) {
+        try {
+            Class<?> curiosApiClass = Class.forName("top.theillusivec4.curios.api.CuriosApi");
+            java.lang.reflect.Method getInventoryMethod =
+                curiosApiClass.getMethod("getCuriosInventory", net.minecraft.world.entity.LivingEntity.class);
+            Object optionalInventory = getInventoryMethod.invoke(null, player);
+
+            if (!(optionalInventory instanceof java.util.Optional<?> optional) || optional.isEmpty()) {
+                return 0.0;
+            }
+
+            Object curiosInventory = optional.get();
+            java.lang.reflect.Method getEquippedMethod = curiosInventory.getClass().getMethod("getEquippedCurios");
+            Object equipped = getEquippedMethod.invoke(curiosInventory);
+
+            if (!(equipped instanceof IItemHandler handler)) {
+                return 0.0;
+            }
+
+            double curiosWeight = 0.0;
+            for (int i = 0; i < handler.getSlots(); i++) {
+                ItemStack stack = handler.getStackInSlot(i);
+                if (!stack.isEmpty()) {
+                    double itemWeight = WeightRegistry.getItemWeight(stack.getItem());
+                    curiosWeight += itemWeight * stack.getCount();
+                    curiosWeight += calculateBackpackWeight(stack);
+                }
+            }
+            return curiosWeight;
+
+        } catch (ClassNotFoundException e) {
+            // Curios mod not present - this is fine
+            return 0.0;
+        } catch (Exception e) {
+            TharidiaSimpleWeight.LOGGER.error("Error calculating curios weight", e);
+            return 0.0;
+        }
+    }
+
+    // Per-player weight status cache so movement checks can run every tick
+    // without recalculating the full inventory weight each time.
+    private static final java.util.Map<UUID, CachedStatus> SERVER_STATUS_CACHE = new ConcurrentHashMap<>();
+    private static final java.util.Map<UUID, CachedStatus> CLIENT_STATUS_CACHE = new ConcurrentHashMap<>();
+    private static final int STATUS_CACHE_TICKS = 20;
+
+    private record CachedStatus(WeightData.WeightStatus status, int tick) {}
+
+    /**
+     * Gets the player's weight status, recalculated at most once per second.
+     * Safe to call every tick on both client and server.
+     */
+    public static WeightData.WeightStatus getCachedWeightStatus(Player player) {
+        java.util.Map<UUID, CachedStatus> cache =
+            player.level().isClientSide ? CLIENT_STATUS_CACHE : SERVER_STATUS_CACHE;
+        UUID uuid = player.getUUID();
+        CachedStatus cached = cache.get(uuid);
+        if (cached != null
+                && player.tickCount >= cached.tick()
+                && player.tickCount - cached.tick() < STATUS_CACHE_TICKS) {
+            return cached.status();
+        }
+        WeightData.WeightStatus status = getPlayerWeightStatus(player);
+        cache.put(uuid, new CachedStatus(status, player.tickCount));
+        return status;
+    }
+
     /**
      * Gets the weight status for a player
      */

@@ -16,7 +16,8 @@ public class WeightData {
             WeightThresholds.CODEC.fieldOf("thresholds").forGetter(d -> d.thresholds),
             WeightDebuffs.CODEC.fieldOf("debuffs").forGetter(d -> d.debuffs),
             Codec.DOUBLE.optionalFieldOf("weight_multiplier", 1.0).forGetter(d -> d.weightMultiplier),
-            Codec.BOOL.optionalFieldOf("smooth_transition", false).forGetter(d -> d.smoothTransition)
+            Codec.BOOL.optionalFieldOf("smooth_transition", false).forGetter(d -> d.smoothTransition),
+            HudConfig.CODEC.optionalFieldOf("hud", HudConfig.DEFAULT).forGetter(d -> d.hudConfig)
         ).apply(instance, WeightData::new)
     );
 
@@ -25,17 +26,27 @@ public class WeightData {
     private final WeightDebuffs debuffs;
     private final double weightMultiplier;
     private final boolean smoothTransition;
+    private final HudConfig hudConfig;
 
     public WeightData(Map<String, Double> itemWeights, WeightThresholds thresholds, WeightDebuffs debuffs, double weightMultiplier) {
-        this(itemWeights, thresholds, debuffs, weightMultiplier, false);
+        this(itemWeights, thresholds, debuffs, weightMultiplier, false, HudConfig.DEFAULT);
     }
 
     public WeightData(Map<String, Double> itemWeights, WeightThresholds thresholds, WeightDebuffs debuffs, double weightMultiplier, boolean smoothTransition) {
+        this(itemWeights, thresholds, debuffs, weightMultiplier, smoothTransition, HudConfig.DEFAULT);
+    }
+
+    public WeightData(Map<String, Double> itemWeights, WeightThresholds thresholds, WeightDebuffs debuffs, double weightMultiplier, boolean smoothTransition, HudConfig hudConfig) {
         this.itemWeights = itemWeights;
         this.thresholds = thresholds;
         this.debuffs = debuffs;
         this.weightMultiplier = weightMultiplier;
         this.smoothTransition = smoothTransition;
+        this.hudConfig = hudConfig;
+    }
+
+    public HudConfig getHudConfig() {
+        return hudConfig;
     }
     
     public double getItemWeight(ResourceLocation itemId) {
@@ -153,26 +164,40 @@ public class WeightData {
                 Codec.DOUBLE.fieldOf("heavy_speed_multiplier").forGetter(d -> d.heavySpeedMultiplier),
                 Codec.DOUBLE.fieldOf("overencumbered_speed_multiplier").forGetter(d -> d.overencumberedSpeedMultiplier),
                 Codec.BOOL.fieldOf("heavy_disable_swim_up").forGetter(d -> d.heavyDisableSwimUp),
-                Codec.BOOL.fieldOf("overencumbered_disable_swim_up").forGetter(d -> d.overencumberedDisableSwimUp)
+                Codec.BOOL.fieldOf("overencumbered_disable_swim_up").forGetter(d -> d.overencumberedDisableSwimUp),
+                Codec.BOOL.optionalFieldOf("heavy_disable_jump", false).forGetter(d -> d.heavyDisableJump),
+                Codec.BOOL.optionalFieldOf("overencumbered_disable_jump", false).forGetter(d -> d.overencumberedDisableJump)
             ).apply(instance, WeightDebuffs::new)
         );
-        
+
         private final double lightSpeedMultiplier;
         private final double mediumSpeedMultiplier;
         private final double heavySpeedMultiplier;
         private final double overencumberedSpeedMultiplier;
         private final boolean heavyDisableSwimUp;
         private final boolean overencumberedDisableSwimUp;
-        
+        private final boolean heavyDisableJump;
+        private final boolean overencumberedDisableJump;
+
         public WeightDebuffs(double lightSpeedMultiplier, double mediumSpeedMultiplier,
                            double heavySpeedMultiplier, double overencumberedSpeedMultiplier,
                            boolean heavyDisableSwimUp, boolean overencumberedDisableSwimUp) {
+            this(lightSpeedMultiplier, mediumSpeedMultiplier, heavySpeedMultiplier, overencumberedSpeedMultiplier,
+                heavyDisableSwimUp, overencumberedDisableSwimUp, false, false);
+        }
+
+        public WeightDebuffs(double lightSpeedMultiplier, double mediumSpeedMultiplier,
+                           double heavySpeedMultiplier, double overencumberedSpeedMultiplier,
+                           boolean heavyDisableSwimUp, boolean overencumberedDisableSwimUp,
+                           boolean heavyDisableJump, boolean overencumberedDisableJump) {
             this.lightSpeedMultiplier = lightSpeedMultiplier;
             this.mediumSpeedMultiplier = mediumSpeedMultiplier;
             this.heavySpeedMultiplier = heavySpeedMultiplier;
             this.overencumberedSpeedMultiplier = overencumberedSpeedMultiplier;
             this.heavyDisableSwimUp = heavyDisableSwimUp;
             this.overencumberedDisableSwimUp = overencumberedDisableSwimUp;
+            this.heavyDisableJump = heavyDisableJump;
+            this.overencumberedDisableJump = overencumberedDisableJump;
         }
         
         public double getLightSpeedMultiplier() { return lightSpeedMultiplier; }
@@ -181,6 +206,8 @@ public class WeightData {
         public double getOverencumberedSpeedMultiplier() { return overencumberedSpeedMultiplier; }
         public boolean isHeavyDisableSwimUp() { return heavyDisableSwimUp; }
         public boolean isOverencumberedDisableSwimUp() { return overencumberedDisableSwimUp; }
+        public boolean isHeavyDisableJump() { return heavyDisableJump; }
+        public boolean isOverencumberedDisableJump() { return overencumberedDisableJump; }
 
         public double getSpeedMultiplier(WeightStatus status) {
             return switch (status) {
@@ -199,17 +226,54 @@ public class WeightData {
                 default -> false;
             };
         }
+
+        public boolean isJumpDisabled(WeightStatus status) {
+            return switch (status) {
+                case HEAVY -> heavyDisableJump;
+                case OVERENCUMBERED -> overencumberedDisableJump;
+                default -> false;
+            };
+        }
     }
-    
+
+    /**
+     * Client HUD configuration (anchor corner + pixel offsets), set via datapack
+     */
+    public static class HudConfig {
+        public static final HudConfig DEFAULT = new HudConfig("bottom_left", 0, 0);
+
+        public static final Codec<HudConfig> CODEC = RecordCodecBuilder.create(instance ->
+            instance.group(
+                Codec.STRING.optionalFieldOf("position", "bottom_left").forGetter(h -> h.position),
+                Codec.INT.optionalFieldOf("x_offset", 0).forGetter(h -> h.xOffset),
+                Codec.INT.optionalFieldOf("y_offset", 0).forGetter(h -> h.yOffset)
+            ).apply(instance, HudConfig::new)
+        );
+
+        private final String position; // bottom_left, bottom_right, top_left, top_right
+        private final int xOffset;
+        private final int yOffset;
+
+        public HudConfig(String position, int xOffset, int yOffset) {
+            this.position = position;
+            this.xOffset = xOffset;
+            this.yOffset = yOffset;
+        }
+
+        public String getPosition() { return position; }
+        public int getXOffset() { return xOffset; }
+        public int getYOffset() { return yOffset; }
+    }
+
     /**
      * Weight status levels
      */
     public enum WeightStatus {
-        NORMAL(0x00FF00),      // Green
-        LIGHT(0x90EE90),       // Light green
-        MEDIUM(0xFFFF00),      // Yellow
-        HEAVY(0xFF8C00),       // Orange
-        OVERENCUMBERED(0xFF0000); // Red
+        NORMAL(0x555555),      // Dark gray (blends with the empty bar)
+        LIGHT(0xFFFF00),       // Yellow
+        MEDIUM(0xFFA500),      // Orange
+        HEAVY(0xFF0000),       // Red
+        OVERENCUMBERED(0xAA00FF); // Purple
         
         private final int color;
         

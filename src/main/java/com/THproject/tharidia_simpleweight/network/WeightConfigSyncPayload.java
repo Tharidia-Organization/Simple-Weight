@@ -29,8 +29,13 @@ public record WeightConfigSyncPayload(
         double overencumberedSpeedMultiplier,
         boolean heavyDisableSwimUp,
         boolean overencumberedDisableSwimUp,
+        boolean heavyDisableJump,
+        boolean overencumberedDisableJump,
         double weightMultiplier,
-        boolean smoothTransition
+        boolean smoothTransition,
+        String hudPosition,
+        int hudXOffset,
+        int hudYOffset
 ) implements CustomPacketPayload {
 
     public static final Type<WeightConfigSyncPayload> TYPE =
@@ -52,8 +57,13 @@ public record WeightConfigSyncPayload(
                 buf.writeDouble(payload.overencumberedSpeedMultiplier());
                 buf.writeBoolean(payload.heavyDisableSwimUp());
                 buf.writeBoolean(payload.overencumberedDisableSwimUp());
+                buf.writeBoolean(payload.heavyDisableJump());
+                buf.writeBoolean(payload.overencumberedDisableJump());
                 buf.writeDouble(payload.weightMultiplier());
                 buf.writeBoolean(payload.smoothTransition());
+                ByteBufCodecs.STRING_UTF8.encode(buf, payload.hudPosition());
+                buf.writeInt(payload.hudXOffset());
+                buf.writeInt(payload.hudYOffset());
             },
             buf -> new WeightConfigSyncPayload(
                     ITEM_WEIGHTS_CODEC.decode(buf),
@@ -67,8 +77,13 @@ public record WeightConfigSyncPayload(
                     buf.readDouble(),
                     buf.readBoolean(),
                     buf.readBoolean(),
+                    buf.readBoolean(),
+                    buf.readBoolean(),
                     buf.readDouble(),
-                    buf.readBoolean()
+                    buf.readBoolean(),
+                    ByteBufCodecs.STRING_UTF8.decode(buf),
+                    buf.readInt(),
+                    buf.readInt()
             )
     );
 
@@ -83,6 +98,7 @@ public record WeightConfigSyncPayload(
     public static WeightConfigSyncPayload fromRegistry() {
         WeightData.WeightThresholds thresholds = WeightRegistry.getThresholds();
         WeightData.WeightDebuffs debuffs = WeightRegistry.getDebuffs();
+        WeightData.HudConfig hud = WeightRegistry.getHudConfig();
 
         return new WeightConfigSyncPayload(
                 new HashMap<>(WeightRegistry.getItemWeights()),
@@ -96,8 +112,13 @@ public record WeightConfigSyncPayload(
                 debuffs.getOverencumberedSpeedMultiplier(),
                 debuffs.isHeavyDisableSwimUp(),
                 debuffs.isOverencumberedDisableSwimUp(),
+                debuffs.isHeavyDisableJump(),
+                debuffs.isOverencumberedDisableJump(),
                 WeightRegistry.getWeightMultiplier(),
-                WeightRegistry.isSmoothTransition()
+                WeightRegistry.isSmoothTransition(),
+                hud.getPosition(),
+                hud.getXOffset(),
+                hud.getYOffset()
         );
     }
 
@@ -108,8 +129,9 @@ public record WeightConfigSyncPayload(
         WeightData.WeightThresholds thresholds = new WeightData.WeightThresholds(light, medium, heavy, overencumbered);
         WeightData.WeightDebuffs debuffs = new WeightData.WeightDebuffs(
                 lightSpeedMultiplier, mediumSpeedMultiplier, heavySpeedMultiplier, overencumberedSpeedMultiplier,
-                heavyDisableSwimUp, overencumberedDisableSwimUp
+                heavyDisableSwimUp, overencumberedDisableSwimUp, heavyDisableJump, overencumberedDisableJump
         );
-        return new WeightData(itemWeights, thresholds, debuffs, weightMultiplier, smoothTransition);
+        WeightData.HudConfig hud = new WeightData.HudConfig(hudPosition, hudXOffset, hudYOffset);
+        return new WeightData(itemWeights, thresholds, debuffs, weightMultiplier, smoothTransition, hud);
     }
 }

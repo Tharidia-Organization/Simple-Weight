@@ -16,9 +16,7 @@ import net.minecraft.world.entity.player.Player;
 public class WeightHudOverlay implements LayeredDraw.Layer {
     private static final int INDICATOR_WIDTH = 25;
     private static final int INDICATOR_HEIGHT = 35;
-    private static final int HOTBAR_WIDTH = 182; // Minecraft hotbar width
-    private static final int OFFSET_FROM_HOTBAR = 5; // Distance from left edge of hotbar
-    private static final int MARGIN_Y = 3;
+    private static final int MARGIN = 3;
     
     @Override
     public void render(GuiGraphics guiGraphics, DeltaTracker deltaTracker) {
@@ -34,17 +32,21 @@ public class WeightHudOverlay implements LayeredDraw.Layer {
         WeightData.WeightStatus status = WeightRegistry.getWeightStatus(currentWeight);
         WeightData.WeightThresholds thresholds = WeightRegistry.getThresholds();
         
-        // Position anchored to the left side of the hotbar
+        // Position from datapack hud config: anchor corner + pixel offsets.
+        // Offsets always push the indicator INWARD from the chosen corner.
+        WeightData.HudConfig hud = WeightRegistry.getHudConfig();
         int screenHeight = mc.getWindow().getGuiScaledHeight();
         int screenWidth = mc.getWindow().getGuiScaledWidth();
-        
-        // Calculate hotbar center position and then left edge
-        int hotbarLeft = (screenWidth / 2) - (HOTBAR_WIDTH / 2);
-        
-        // Position indicator to the left of the hotbar
-        //int x = hotbarLeft - INDICATOR_WIDTH - OFFSET_FROM_HOTBAR;
-        int x = 3;
-        int y = screenHeight - INDICATOR_HEIGHT - MARGIN_Y;
+
+        boolean right = hud.getPosition().endsWith("right");
+        boolean top = hud.getPosition().startsWith("top");
+
+        int x = right
+            ? screenWidth - INDICATOR_WIDTH - MARGIN - hud.getXOffset()
+            : MARGIN + hud.getXOffset();
+        int y = top
+            ? MARGIN + hud.getYOffset()
+            : screenHeight - INDICATOR_HEIGHT - MARGIN - hud.getYOffset();
         
         // Draw background box
         guiGraphics.fill(x, y, x + INDICATOR_WIDTH, y + INDICATOR_HEIGHT, 0xAA000000);

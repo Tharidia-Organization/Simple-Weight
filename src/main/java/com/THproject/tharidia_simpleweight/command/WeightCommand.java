@@ -32,6 +32,8 @@ public class WeightCommand {
         ServerPlayer player = source.getPlayerOrException();
 
         boolean enabled = WeightManager.toggleTestMode(player);
+        net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player,
+            new com.THproject.tharidia_simpleweight.network.TestModeSyncPayload(enabled));
         if (enabled) {
             source.sendSuccess(() -> Component.literal(
                 "Weight test mode ENABLED - you are no longer exempt from weight restrictions."), false);

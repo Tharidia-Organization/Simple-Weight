@@ -87,21 +87,50 @@ The mod comes with default weight values for common items:
 You can create custom weight configurations using datapacks. Place JSON files in:
 
 ```
-datapacks/your_datapack/data/tharidia_simpleweight/weight/items.json
+datapacks/your_datapack/data/tharidia_simpleweight/weight_config/example.json
 ```
 
-Example configuration:
+Example configuration (see `example_datapack/` for a complete one):
 
 ```json
 {
-  "weights": {
+  "item_weights": {
     "minecraft:iron_ingot": 2.0,
     "minecraft:gold_ingot": 2.5,
     "minecraft:diamond": 0.5,
-    "minecraft:netherite_ingot": 3.0
+    "#minecraft:logs": 1.5,
+    "#c:ingots": 2.0
+  },
+  "thresholds": {
+    "light": 100.0,
+    "medium": 200.0,
+    "heavy": 300.0,
+    "overencumbered": 400.0
+  },
+  "debuffs": {
+    "light_speed_multiplier": 0.95,
+    "medium_speed_multiplier": 0.85,
+    "heavy_speed_multiplier": 0.70,
+    "overencumbered_speed_multiplier": 0.50,
+    "heavy_disable_swim_up": true,
+    "overencumbered_disable_swim_up": true,
+    "heavy_disable_jump": false,
+    "overencumbered_disable_jump": false
+  },
+  "weight_multiplier": 1.0,
+  "smooth_transition": true,
+  "hud": {
+    "position": "bottom_left",
+    "x_offset": 0,
+    "y_offset": 0
   }
 }
 ```
+
+Notes:
+- `item_weights` keys starting with `#` are item tags and are expanded to all items in the tag. Specific item entries always override tag entries. Unknown tags are logged as warnings in the server log.
+- `hud.position` accepts `bottom_left`, `bottom_right`, `top_left`, `top_right`; `x_offset`/`y_offset` push the indicator inward from the chosen corner (useful to avoid overlapping JEI or other HUD mods).
+- `heavy_disable_jump` / `overencumbered_disable_jump` (optional, default `false`) also block jumping on land, for packs with auto-jump/step-up mods.
 
 ---
 
