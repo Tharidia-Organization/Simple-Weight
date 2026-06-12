@@ -1,6 +1,6 @@
 # Tharidia: Simple Weight
 
-⚠️ **ALPHA VERSION - UNDER ACTIVE DEVELOPMENT** ⚠️
+⚠️ **BETA VERSION - UNDER ACTIVE DEVELOPMENT** ⚠️
 
 This mod is currently in an alpha state and is being actively developed. Features may change, and bugs may be present. Use at your own risk in production environments.
 
