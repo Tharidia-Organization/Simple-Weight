@@ -6,6 +6,7 @@ import com.THproject.tharidia_simpleweight.weight.WeightData;
 import com.THproject.tharidia_simpleweight.weight.WeightManager;
 import com.THproject.tharidia_simpleweight.weight.WeightRegistry;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.tags.FluidTags;
 import net.neoforged.neoforge.event.entity.living.LivingEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
@@ -68,20 +69,25 @@ public class WeightDebuffHandler {
     }
 
     /**
-     * Prevent swimming up when heavy/overencumbered.
-     * Runs every tick on BOTH sides: the client is authoritative for its own
-     * movement, so blocking only on the server let the space bar still float
-     * the player upward. Jumping while standing on the bottom / shoreline is
-     * still allowed (onGround check). Cheap thanks to the cached weight status.
+     * Prevents swimming upward when heavy/overencumbered. Called from
+     * LivingEntityMixin at the start of travel(), on BOTH sides (the client is
+     * authoritative for its own movement), so it sees the vertical speed after
+     * every upward push of the tick has been applied: the space-bar swim boost,
+     * sprint-swimming while looking up and the previous tick's wall-climb boost.
+     * Players wading in shallow water (head above the surface, feet on the
+     * bottom or pushing against the bank) can still climb out; staying afloat
+     * at the surface of deep water is blocked like any other upward swim.
      */
-    @SubscribeEvent
-    public static void onPlayerSwim(EntityTickEvent.Pre event) {
-        if (!(event.getEntity() instanceof Player player)) {
+    public static void limitSwimUp(Player player) {
+        if (!player.isInWater()) {
+            return;
+        }
+        if (!player.isEyeInFluid(FluidTags.WATER) && (player.onGround() || player.horizontalCollision)) {
             return;
         }
 
-        // Only relevant while actually in water and not standing on the bottom
-        if (!player.isInWater() || player.onGround()) {
+        var delta = player.getDeltaMovement();
+        if (delta.y <= 0) {
             return;
         }
 
@@ -91,10 +97,7 @@ public class WeightDebuffHandler {
 
         WeightData.WeightStatus status = WeightManager.getCachedWeightStatus(player);
         if (WeightRegistry.getDebuffs().isSwimUpDisabled(status)) {
-            // Prevent upward movement in water
-            if (player.getDeltaMovement().y > 0) {
-                player.setDeltaMovement(player.getDeltaMovement().multiply(1, 0, 1));
-            }
+            player.setDeltaMovement(delta.x, 0.0, delta.z);
         }
     }
 

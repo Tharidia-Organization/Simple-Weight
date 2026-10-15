@@ -44,12 +44,12 @@ public class TharidiaSimpleWeight {
     }
 
     private void registerPayloads(RegisterPayloadHandlersEvent event) {
-        PayloadRegistrar registrar = event.registrar(MODID).versioned("2");
+        PayloadRegistrar registrar = event.registrar(MODID).versioned("3");
         registrar.playToClient(
                 WeightConfigSyncPayload.TYPE,
                 WeightConfigSyncPayload.STREAM_CODEC,
                 (payload, context) -> context.enqueueWork(() ->
-                        com.THproject.tharidia_simpleweight.weight.WeightRegistry.setWeightData(payload.toWeightData()))
+                        com.THproject.tharidia_simpleweight.weight.WeightRegistry.setWeightData(payload.weightData()))
         );
         registrar.playToClient(
                 com.THproject.tharidia_simpleweight.network.TestModeSyncPayload.TYPE,

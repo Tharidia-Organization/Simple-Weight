@@ -4,12 +4,12 @@ license="GNU v3"
 
 [[mods]]
 modId="tharidia_simpleweight"
-version="0.1.0-alpha"
+version="${mod_version}"
 displayName="Tharidia: Simple Weight"
 logoFile="logo.png"
 credits="Frenk02, The Tharidia Team"
 description='''
-⚠️ ALPHA - Under Active Development
+⚠️ BETA - Under Active Development
 
 A lightweight weight system for the Tharidia medieval fantasy roleplay server.
 This mod is part of the Tharidia Project, a complex Minecraft roleplay experience set in a medieval world with fantasy elements.
@@ -18,12 +18,16 @@ Features:
 - Dynamic weight calculation based on inventory items
 - Movement speed penalties for heavy loads
 - Swimming restrictions when overencumbered
+- Counts container contents (backpacks, shulker boxes, bundles, quivers, packed tents) and Carry On loads
 - Configurable weight values via datapacks
 - Master/OP bypass for server administrators
 
 Originally part of the main Tharidia Things mod, extracted for modular deployment alongside other Tharidia mods.
 '''
 authors="THproject Team"
+
+[[mixins]]
+config="tharidia_simpleweight.mixins.json"
 
 [[dependencies.tharidia_simpleweight]]
     modId="neoforge"

@@ -132,45 +132,6 @@ configurations {
 }
 
 dependencies {
-    // AzureLib for animated models (NeoForge version) - local dependency
-    //implementation files("libs/azurelib-neo-1.21.1-3.0.38.jar")
-
-    // MySQL Connector for database communication - included in JAR via JarJar
-    implementation 'com.mysql:mysql-connector-j:8.3.0'
-    jarJar(group: 'com.mysql', name: 'mysql-connector-j', version: '[8.3.0,9.0.0)')
-    
-    // HikariCP for connection pooling - included in JAR via JarJar
-    implementation 'com.zaxxer:HikariCP:5.1.0'
-    jarJar(group: 'com.zaxxer', name: 'HikariCP', version: '[5.1.0,6.0.0)')
-    
-    // JLayer for MP3 playback - included in JAR via JarJar
-    implementation 'javazoom:jlayer:1.0.1'
-    jarJar(group: 'javazoom', name: 'jlayer', version: '[1.0.1,2.0.0)')
-    
-    // VLCJ for video playback - included in JAR via JarJar
-    implementation 'uk.co.caprica:vlcj:4.8.2'
-    jarJar(group: 'uk.co.caprica', name: 'vlcj', version: '[4.8.2,5.0.0)')
-    
-    // VLC Native Discovery
-    implementation 'uk.co.caprica:vlcj-natives:4.8.0'
-    jarJar(group: 'uk.co.caprica', name: 'vlcj-natives', version: '[4.8.0,5.0.0)')
-    
-    // JNA for native library access (required by VLCJ)
-    // Note: JNA is already provided by Minecraft/NeoForge or other mods, so we don't JarJar it
-    implementation 'net.java.dev.jna:jna:5.14.0'
-    // jarJar(group: 'net.java.dev.jna', name: 'jna', version: '[5.14.0,6.0.0)')
-    
-    implementation 'net.java.dev.jna:jna-platform:5.14.0'
-    // jarJar(group: 'net.java.dev.jna', name: 'jna-platform', version: '[5.14.0,6.0.0)')
-    
-    // Gson for JSON parsing (YouTube API responses)
-    // Note: Gson is already provided by Minecraft, so we don't JarJar it
-    implementation 'com.google.code.gson:gson:2.10.1'
-    // jarJar(group: 'com.google.code.gson', name: 'gson', version: '[2.10.1,3.0.0)')
-    
-    
-    // SLF4J API is already provided by Minecraft/NeoForge - no need to include it
-
     // Paladins mod dependency for stone great hammer
     //implementation "maven.modrinth:paladins-and-priests:2.6.3+1.21.1-neoforge"
     

@@ -10,6 +10,8 @@ import java.util.Map;
  * Represents the weight configuration data loaded from datapacks
  */
 public class WeightData {
+    public static final double DEFAULT_ITEM_WEIGHT = 1.0;
+
     public static final Codec<WeightData> CODEC = RecordCodecBuilder.create(instance ->
         instance.group(
             Codec.unboundedMap(Codec.STRING, Codec.DOUBLE).fieldOf("item_weights").forGetter(d -> d.itemWeights),
@@ -17,9 +19,14 @@ public class WeightData {
             WeightDebuffs.CODEC.fieldOf("debuffs").forGetter(d -> d.debuffs),
             Codec.DOUBLE.optionalFieldOf("weight_multiplier", 1.0).forGetter(d -> d.weightMultiplier),
             Codec.BOOL.optionalFieldOf("smooth_transition", false).forGetter(d -> d.smoothTransition),
-            HudConfig.CODEC.optionalFieldOf("hud", HudConfig.DEFAULT).forGetter(d -> d.hudConfig)
+            HudConfig.CODEC.optionalFieldOf("hud", HudConfig.DEFAULT).forGetter(d -> d.hudConfig),
+            Codec.DOUBLE.optionalFieldOf("default_item_weight", DEFAULT_ITEM_WEIGHT).forGetter(d -> d.defaultItemWeight),
+            Codec.unboundedMap(Codec.STRING, Codec.DOUBLE).optionalFieldOf("entity_weights", Map.of()).forGetter(d -> d.entityWeights),
+            Codec.DOUBLE.optionalFieldOf("default_entity_weight", 0.0).forGetter(d -> d.defaultEntityWeight),
+            DisplayConfig.CODEC.optionalFieldOf("display", DisplayConfig.DEFAULT).forGetter(d -> d.displayConfig)
         ).apply(instance, WeightData::new)
     );
+
 
     private final Map<String, Double> itemWeights;
     private final WeightThresholds thresholds;
@@ -27,30 +34,66 @@ public class WeightData {
     private final double weightMultiplier;
     private final boolean smoothTransition;
     private final HudConfig hudConfig;
+    private final double defaultItemWeight;
+    private final Map<String, Double> entityWeights;
+    private final double defaultEntityWeight;
+    private final DisplayConfig displayConfig;
 
     public WeightData(Map<String, Double> itemWeights, WeightThresholds thresholds, WeightDebuffs debuffs, double weightMultiplier) {
-        this(itemWeights, thresholds, debuffs, weightMultiplier, false, HudConfig.DEFAULT);
+        this(itemWeights, thresholds, debuffs, weightMultiplier, false, HudConfig.DEFAULT,
+            DEFAULT_ITEM_WEIGHT, Map.of(), 0.0, DisplayConfig.DEFAULT);
     }
 
-    public WeightData(Map<String, Double> itemWeights, WeightThresholds thresholds, WeightDebuffs debuffs, double weightMultiplier, boolean smoothTransition) {
-        this(itemWeights, thresholds, debuffs, weightMultiplier, smoothTransition, HudConfig.DEFAULT);
-    }
-
-    public WeightData(Map<String, Double> itemWeights, WeightThresholds thresholds, WeightDebuffs debuffs, double weightMultiplier, boolean smoothTransition, HudConfig hudConfig) {
+    public WeightData(Map<String, Double> itemWeights, WeightThresholds thresholds, WeightDebuffs debuffs,
+                      double weightMultiplier, boolean smoothTransition, HudConfig hudConfig,
+                      double defaultItemWeight, Map<String, Double> entityWeights, double defaultEntityWeight,
+                      DisplayConfig displayConfig) {
         this.itemWeights = itemWeights;
         this.thresholds = thresholds;
         this.debuffs = debuffs;
         this.weightMultiplier = weightMultiplier;
         this.smoothTransition = smoothTransition;
         this.hudConfig = hudConfig;
+        this.defaultItemWeight = defaultItemWeight;
+        this.entityWeights = entityWeights;
+        this.defaultEntityWeight = defaultEntityWeight;
+        this.displayConfig = displayConfig;
+    }
+
+    /**
+     * Returns a copy with item and entity weights replaced (used after tag expansion).
+     */
+    public WeightData withResolvedWeights(Map<String, Double> resolvedItems, Map<String, Double> resolvedEntities) {
+        return new WeightData(resolvedItems, thresholds, debuffs, weightMultiplier, smoothTransition, hudConfig,
+            defaultItemWeight, resolvedEntities, defaultEntityWeight, displayConfig);
     }
 
     public HudConfig getHudConfig() {
         return hudConfig;
     }
-    
+
+    public DisplayConfig getDisplayConfig() {
+        return displayConfig;
+    }
+
     public double getItemWeight(ResourceLocation itemId) {
-        return itemWeights.getOrDefault(itemId.toString(), 1.0);
+        return itemWeights.getOrDefault(itemId.toString(), defaultItemWeight);
+    }
+
+    public double getEntityWeight(ResourceLocation entityTypeId) {
+        return entityWeights.getOrDefault(entityTypeId.toString(), defaultEntityWeight);
+    }
+
+    public double getDefaultItemWeight() {
+        return defaultItemWeight;
+    }
+
+    public Map<String, Double> getEntityWeights() {
+        return entityWeights;
+    }
+
+    public double getDefaultEntityWeight() {
+        return defaultEntityWeight;
     }
     
     public Map<String, Double> getItemWeights() {
@@ -263,6 +306,43 @@ public class WeightData {
         public String getPosition() { return position; }
         public int getXOffset() { return xOffset; }
         public int getYOffset() { return yOffset; }
+    }
+
+    /**
+     * How weights are shown in tooltips and the HUD: an optional unit suffix
+     * (e.g. "kg") and a fixed number of decimal places (0-4).
+     */
+    public static class DisplayConfig {
+        public static final DisplayConfig DEFAULT = new DisplayConfig("", 1);
+
+        public static final Codec<DisplayConfig> CODEC = RecordCodecBuilder.create(instance ->
+            instance.group(
+                Codec.STRING.optionalFieldOf("unit", "").forGetter(d -> d.unit),
+                Codec.intRange(0, 4).optionalFieldOf("decimals", 1).forGetter(d -> d.decimals)
+            ).apply(instance, DisplayConfig::new)
+        );
+
+        private final String unit;
+        private final int decimals;
+
+        public DisplayConfig(String unit, int decimals) {
+            this.unit = unit;
+            this.decimals = Math.max(0, Math.min(4, decimals));
+        }
+
+        public String getUnit() { return unit; }
+        public int getDecimals() { return decimals; }
+
+        /** Formats a number with the configured decimals, without the unit. */
+        public String formatNumber(double weight) {
+            return String.format(java.util.Locale.ROOT, "%." + decimals + "f", weight);
+        }
+
+        /** Formats a number with the configured decimals followed by the unit, if any. */
+        public String format(double weight) {
+            String number = formatNumber(weight);
+            return unit.isEmpty() ? number : number + " " + unit;
+        }
     }
 
     /**

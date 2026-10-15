@@ -1,11 +1,11 @@
 package com.THproject.tharidia_simpleweight.weight;
 
 import com.THproject.tharidia_simpleweight.TharidiaSimpleWeight;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.items.IItemHandler;
 
 import java.util.Set;
@@ -95,53 +95,49 @@ public class WeightManager {
     }
     
     /**
-     * Calculates the total weight of a player's inventory
-     * Returns 0 if player is a master
-     * 
-     * FIXED: Removed duplicate counting of armor and offhand slots
-     * ADDED: Support for Accessories mod slots
+     * Calculates the total weight carried by a player: main inventory, armor,
+     * offhand, Accessories/Curios slots, everything stored inside carried
+     * containers (backpacks, shulker boxes, bundles, quivers, packed tents)
+     * and whatever the player is holding with Carry On.
+     * Returns 0 if the player is a master.
      */
     public static double calculatePlayerWeight(Player player) {
         // Masters bypass weight system
         if (isMaster(player)) {
             return 0.0;
         }
+        return calculateCarriedWeight(player);
+    }
+
+    /**
+     * Total carried weight (with the global multiplier), ignoring the OP bypass.
+     */
+    public static double calculateCarriedWeight(Player player) {
         Inventory inventory = player.getInventory();
+        HolderLookup.Provider registries = player.registryAccess();
         double totalWeight = 0.0;
-        
+
         // Main inventory (slots 0-35: hotbar + main inventory)
-        // This includes ONLY the main inventory, NOT armor or offhand
         for (int i = 0; i < 36; i++) {
-            ItemStack stack = inventory.getItem(i);
-            if (!stack.isEmpty()) {
-                double itemWeight = WeightRegistry.getItemWeight(stack.getItem());
-                totalWeight += itemWeight * stack.getCount();
-                totalWeight += calculateBackpackWeight(stack);
-            }
+            totalWeight += getStackWeight(inventory.getItem(i), registries);
         }
 
-        // Armor slots (slots 36-39: boots, leggings, chestplate, helmet)
+        // Armor slots (boots, leggings, chestplate, helmet)
         for (ItemStack armorStack : inventory.armor) {
-            if (!armorStack.isEmpty()) {
-                double itemWeight = WeightRegistry.getItemWeight(armorStack.getItem());
-                totalWeight += itemWeight * armorStack.getCount();
-                totalWeight += calculateBackpackWeight(armorStack);
-            }
+            totalWeight += getStackWeight(armorStack, registries);
         }
 
-        // Offhand (slot 40)
-        ItemStack offhandStack = inventory.offhand.get(0);
-        if (!offhandStack.isEmpty()) {
-            double itemWeight = WeightRegistry.getItemWeight(offhandStack.getItem());
-            totalWeight += itemWeight * offhandStack.getCount();
-            totalWeight += calculateBackpackWeight(offhandStack);
-        }
+        // Offhand
+        totalWeight += getStackWeight(inventory.offhand.get(0), registries);
 
         // Accessories mod slots (if present)
         totalWeight += calculateAccessoriesWeight(player);
 
         // Curios mod slots (if present)
         totalWeight += calculateCuriosWeight(player);
+
+        // Block or entity carried with the Carry On mod (if present)
+        totalWeight += ContainerWeights.carryOnWeight(player, registries);
 
         // Apply global weight multiplier from datapack config
         totalWeight *= WeightRegistry.getWeightMultiplier();
@@ -150,30 +146,17 @@ public class WeightManager {
     }
 
     /**
-     * Calculates the weight of items stored inside a backpack-like item.
-     * Works generically with any item that exposes the NeoForge ItemHandler
-     * capability on its ItemStack (e.g. Sophisticated Backpacks, L2 Backpack,
-     * Simple Backpack), so no hard dependency on those mods is required.
+     * Weight of a whole stack: the item weight times the count, plus the
+     * weight of everything stored inside it. The global multiplier is NOT applied.
      */
-    private static double calculateBackpackWeight(ItemStack stack) {
-        IItemHandler handler = stack.getCapability(Capabilities.ItemHandler.ITEM);
-        if (handler == null) {
+    public static double getStackWeight(ItemStack stack, HolderLookup.Provider registries) {
+        if (stack.isEmpty()) {
             return 0.0;
         }
-
-        double backpackWeight = 0.0;
-        for (int i = 0; i < handler.getSlots(); i++) {
-            ItemStack contained = handler.getStackInSlot(i);
-            if (!contained.isEmpty()) {
-                double itemWeight = WeightRegistry.getItemWeight(contained.getItem());
-                backpackWeight += itemWeight * contained.getCount();
-                // Recurse to support backpacks nested inside other backpacks
-                backpackWeight += calculateBackpackWeight(contained);
-            }
-        }
-        return backpackWeight;
+        return WeightRegistry.getItemWeight(stack.getItem()) * stack.getCount()
+            + ContainerWeights.contentsWeight(stack, registries, 0);
     }
-    
+
     /**
      * Calculates weight from Accessories mod slots
      * Uses reflection to avoid hard dependency on Accessories mod
@@ -216,12 +199,7 @@ public class WeightManager {
                 
                 // Calculate weight for all items in this container
                 for (int i = 0; i < handler.getSlots(); i++) {
-                    ItemStack stack = handler.getStackInSlot(i);
-                    if (!stack.isEmpty()) {
-                        double itemWeight = WeightRegistry.getItemWeight(stack.getItem());
-                        accessoriesWeight += itemWeight * stack.getCount();
-                        accessoriesWeight += calculateBackpackWeight(stack);
-                    }
+                    accessoriesWeight += getStackWeight(handler.getStackInSlot(i), player.registryAccess());
                 }
             }
             
@@ -262,12 +240,7 @@ public class WeightManager {
 
             double curiosWeight = 0.0;
             for (int i = 0; i < handler.getSlots(); i++) {
-                ItemStack stack = handler.getStackInSlot(i);
-                if (!stack.isEmpty()) {
-                    double itemWeight = WeightRegistry.getItemWeight(stack.getItem());
-                    curiosWeight += itemWeight * stack.getCount();
-                    curiosWeight += calculateBackpackWeight(stack);
-                }
+                curiosWeight += getStackWeight(handler.getStackInSlot(i), player.registryAccess());
             }
             return curiosWeight;
 
