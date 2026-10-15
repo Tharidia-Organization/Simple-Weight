@@ -20,7 +20,19 @@
     "minecraft:water_bucket": 6.0,
     "minecraft:totem_of_undying": 0.5,
     "#minecraft:logs": 1.5,
-    "#minecraft:planks": 0.5
+    "#minecraft:planks": 0.5,
+    "#c:ingots/iron": 3.0,
+    "#minecraft:mineable/hoe": 0.5
+  },
+  "default_item_weight": 1.0,
+  "entity_weights": {
+    "minecraft:pig": 40.0,
+    "#minecraft:skeletons": 30.0
+  },
+  "default_entity_weight": 50.0,
+  "display": {
+    "unit": "",
+    "decimals": 1
   },
   "thresholds": {
     "light": 100.0,

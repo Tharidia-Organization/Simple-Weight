@@ -2,7 +2,7 @@
 
 ⚠️ **BETA VERSION - UNDER ACTIVE DEVELOPMENT** ⚠️
 
-This mod is currently in an alpha state and is being actively developed. Features may change, and bugs may be present. Use at your own risk in production environments.
+This mod is currently in a beta state and is being actively developed. Features may change, and bugs may be present. Use at your own risk in production environments.
 
 ---
 
@@ -31,8 +31,14 @@ The Tharidia Project consists of multiple interconnected mods that work together
 - Speed reduction is gradual and proportional to your total weight
 - Uses Minecraft's attribute system for smooth, compatible speed modifications
 
+#### 🎒 **Container Contents**
+- Items stored inside carried containers count too: backpacks (tested with Sophisticated Backpacks and L2 Backpack, including backpacks inside backpacks), shulker boxes, bundles and Supplementaries quivers, also when worn in Curios/Accessories slots
+- Packed Simply Tents tents count the blocks, chest contents and entities packed inside them
+- Blocks (with their contents) and entities carried with Carry On count as well
+- All these integrations are optional: none of these mods is required
+
 #### 🏊 **Swimming Restrictions**
-- When overencumbered, you cannot swim upward in water
+- When overencumbered, you cannot swim upward in water: you sink to the bottom and have to walk out (wading in shallow water and climbing out onto the bank still works)
 - Simulates the difficulty of swimming with heavy equipment
 - Adds strategic considerations for water crossings and exploration
 
@@ -40,6 +46,10 @@ The Tharidia Project consists of multiple interconnected mods that work together
 - Define custom weight values for any item via JSON datapacks
 - Server administrators can fine-tune the weight system to their needs
 - Default weight values provided for common items (ores, blocks, tools, etc.)
+
+#### 🔍 **`/weight` Command (OP)**
+- `/weight check [player]` shows a player's carried weight and status
+- `/weight testmode` makes the weight system apply to yourself even as OP
 
 #### 👑 **Master/OP Bypass**
 - Players with operator permissions automatically bypass the weight system
@@ -82,6 +92,17 @@ The mod comes with default weight values for common items:
 - **Light Items** (0.5 weight): Diamonds, Emeralds
 - **Very Light Items** (0.1 weight): Most other items
 
+### Global Weight Multiplier (no datapack needed)
+
+`config/tharidia_simpleweight-server.toml` (created on first start, synced to clients, reloaded live when edited):
+
+```toml
+# Below 1.0 makes everything lighter, above 1.0 heavier
+globalWeightMultiplier = 1.0
+```
+
+It multiplies every carried weight, on top of the datapack's `weight_multiplier`. In singleplayer it can also be changed from the Mods screen > Simple Weight > Config.
+
 ### Custom Datapack Configuration
 
 You can create custom weight configurations using datapacks. Place JSON files in:
@@ -99,7 +120,17 @@ Example configuration (see `example_datapack/` for a complete one):
     "minecraft:gold_ingot": 2.5,
     "minecraft:diamond": 0.5,
     "#minecraft:logs": 1.5,
-    "#c:ingots": 2.0
+    "#c:ingots": 2.0,
+    "#minecraft:mineable/pickaxe": 1.0
+  },
+  "default_item_weight": 0.1,
+  "entity_weights": {
+    "minecraft:pig": 40.0
+  },
+  "default_entity_weight": 50.0,
+  "display": {
+    "unit": "kg",
+    "decimals": 2
   },
   "thresholds": {
     "light": 100.0,
@@ -128,7 +159,10 @@ Example configuration (see `example_datapack/` for a complete one):
 ```
 
 Notes:
-- `item_weights` keys starting with `#` are item tags and are expanded to all items in the tag. Specific item entries always override tag entries. Unknown tags are logged as warnings in the server log.
+- `item_weights` keys starting with `#` are item tags and are expanded to all items in the tag (paths with `/` such as `#c:ingots/iron` work). If no item tag with that id exists, a block tag is used instead (e.g. `#minecraft:mineable/pickaxe`), applied to the items of those blocks. Specific item entries always override tag entries. Unknown tags are logged as warnings in the server log.
+- `default_item_weight` (optional, default `1.0`) is the weight of every item not listed in `item_weights`.
+- `entity_weights` / `default_entity_weight` (optional, default `0`) set the weight of entities carried with Carry On or packed inside a Simply Tents tent. Keys can be entity ids or `#` entity type tags.
+- `display.unit` (optional, default empty) is appended to weights in tooltips and `/weight check`, e.g. `kg`; `display.decimals` (optional, 0-4, default `1`) is the number of decimal places shown in tooltips, the HUD and `/weight check`.
 - `hud.position` accepts `bottom_left`, `bottom_right`, `top_left`, `top_right`; `x_offset`/`y_offset` push the indicator inward from the chosen corner (useful to avoid overlapping JEI or other HUD mods).
 - `heavy_disable_jump` / `overencumbered_disable_jump` (optional, default `false`) also block jumping on land, for packs with auto-jump/step-up mods.
 
@@ -182,9 +216,16 @@ com.THproject.tharidia_simpleweight/
 │   ├── WeightData.java             # Weight data model
 │   ├── WeightDataLoader.java       # Datapack loader
 │   ├── WeightManager.java          # Weight calculation logic
-│   └── WeightRegistry.java         # Weight data registry
+│   ├── WeightRegistry.java         # Weight data registry
+│   └── ContainerWeights.java       # Contents of containers, packed tents, Carry On
+├── mixin/
+│   └── LivingEntityMixin.java      # Blocks swimming up when overencumbered
+├── command/
+│   └── WeightCommand.java          # /weight check, /weight testmode
+├── network/                        # Config and test mode sync to clients
 └── client/
-    └── ClientModEvents.java        # Client event handlers
+    ├── WeightHudOverlay.java       # HUD indicator
+    └── WeightTooltipHandler.java   # Item tooltips
 ```
 
 ### How It Works
@@ -192,14 +233,15 @@ com.THproject.tharidia_simpleweight/
 1. **Data Loading**: On world load, the mod reads weight configurations from datapacks
 2. **Player Tick**: Every second (20 ticks), the mod calculates each player's total inventory weight
 3. **Attribute Modification**: Based on weight, a speed modifier is applied to the player's movement speed attribute
-4. **Swimming Check**: Every 5 ticks, the mod checks if overencumbered players are trying to swim upward and prevents it
+4. **Swimming Check**: Before a player moves in water, any upward speed is removed when swimming up is disabled for their weight status (on both client and server)
 5. **Batching**: Players are processed in staggered batches to distribute server load
 
 ### Performance Considerations
 
 - Weight calculations occur only once per second per player
 - Player batching ensures only 1/5th of players are processed each second
-- Swimming checks are performed every 5 ticks instead of every tick
+- Swimming checks reuse a weight status cached for one second
+- The HUD recalculates the weight a few times per second, not every frame
 - Uses efficient attribute modifiers instead of continuous velocity manipulation
 
 ---
@@ -279,7 +321,19 @@ This mod is part of the Tharidia Project. Please respect the project's licensing
 
 ## Version History
 
-### 0.1.0-alpha (Current)
+### 0.5.0-beta (Current)
+- Overencumbered players can no longer swim up (they used to keep rising slowly and could stay afloat at the surface)
+- Configurable display unit and decimal places (`display`)
+- Configurable weight for unlisted items (`default_item_weight`)
+- Block tags (e.g. `#minecraft:mineable/pickaxe`) can be used in `item_weights`
+- Contents of shulker boxes, bundles and Supplementaries quivers are counted, also in Curios slots
+- Simply Tents packed tents and Carry On loads are counted (`entity_weights` for entities)
+- `/weight check [player]`; tooltips show stack totals and contents weight
+- `globalWeightMultiplier` in the server config makes everything lighter or heavier without a datapack
+- The HUD shows the weight computed by the server, so it includes contents only the server knows (e.g. Sophisticated Backpacks)
+- Removed unused bundled libraries (MySQL, HikariCP, JLayer, VLCJ) from the jar
+
+### 0.1.0-alpha
 - Initial alpha release
 - Core weight system functionality
 - Datapack configuration support

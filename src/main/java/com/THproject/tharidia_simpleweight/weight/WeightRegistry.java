@@ -12,7 +12,7 @@ public class WeightRegistry {
     private static final Logger LOGGER = LoggerFactory.getLogger(WeightRegistry.class);
     
     private static WeightData weightData;
-    private static final double DEFAULT_WEIGHT = 1.0;
+    private static final double DEFAULT_WEIGHT = WeightData.DEFAULT_ITEM_WEIGHT;
     
     /**
      * Sets the weight data (called when loading from datapacks)
@@ -23,6 +23,16 @@ public class WeightRegistry {
             data.getItemWeights().size());
     }
     
+    /**
+     * Gets the active weight data, or the built-in defaults if nothing is loaded
+     */
+    public static WeightData getWeightData() {
+        if (weightData == null) {
+            return new WeightData(java.util.Map.of(), getThresholds(), getDebuffs(), 1.0);
+        }
+        return weightData;
+    }
+
     /**
      * Gets the weight of an item
      */
@@ -46,6 +56,39 @@ public class WeightRegistry {
     }
     
     /**
+     * Gets the weight of an entity type (used for entities carried with Carry On
+     * or packed inside Simply Tents)
+     */
+    public static double getEntityWeight(ResourceLocation entityTypeId) {
+        if (weightData == null) {
+            return 0.0;
+        }
+        return weightData.getEntityWeight(entityTypeId);
+    }
+
+    /**
+     * Gets the weight used for items that have no configured weight
+     */
+    public static double getDefaultItemWeight() {
+        return weightData == null ? DEFAULT_WEIGHT : weightData.getDefaultItemWeight();
+    }
+
+    public static java.util.Map<String, Double> getEntityWeights() {
+        return weightData == null ? java.util.Map.of() : weightData.getEntityWeights();
+    }
+
+    public static double getDefaultEntityWeight() {
+        return weightData == null ? 0.0 : weightData.getDefaultEntityWeight();
+    }
+
+    /**
+     * Gets the display configuration (unit suffix and decimal places)
+     */
+    public static WeightData.DisplayConfig getDisplayConfig() {
+        return weightData == null ? WeightData.DisplayConfig.DEFAULT : weightData.getDisplayConfig();
+    }
+
+    /**
      * Gets the current weight thresholds
      */
     public static WeightData.WeightThresholds getThresholds() {
@@ -60,10 +103,8 @@ public class WeightRegistry {
      * Gets the global weight multiplier applied to total carried weight
      */
     public static double getWeightMultiplier() {
-        if (weightData == null) {
-            return 1.0;
-        }
-        return weightData.getWeightMultiplier();
+        double datapackMultiplier = weightData == null ? 1.0 : weightData.getWeightMultiplier();
+        return datapackMultiplier * com.THproject.tharidia_simpleweight.WeightConfig.globalWeightMultiplier();
     }
 
     /**

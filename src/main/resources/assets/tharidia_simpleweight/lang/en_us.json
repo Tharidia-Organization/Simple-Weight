@@ -1,3 +1,5 @@
 {
-  "itemGroup.tharidiathings": "Tharidia Things - Weight"
+  "itemGroup.tharidiathings": "Tharidia Things - Weight",
+  "tharidia_simpleweight.configuration.globalWeightMultiplier": "Global weight multiplier",
+  "tharidia_simpleweight.configuration.title": "Simple Weight"
 }

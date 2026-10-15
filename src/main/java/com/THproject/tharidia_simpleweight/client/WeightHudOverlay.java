@@ -17,6 +17,13 @@ public class WeightHudOverlay implements LayeredDraw.Layer {
     private static final int INDICATOR_WIDTH = 25;
     private static final int INDICATOR_HEIGHT = 35;
     private static final int MARGIN = 3;
+    private static final int TEXT_PADDING = 2;
+    // The full inventory weight (containers, curios, reflection...) is far too
+    // expensive to recompute every frame; refresh it a few times per second.
+    private static final int REFRESH_TICKS = 5;
+
+    private double cachedWeight;
+    private int cachedTick = -REFRESH_TICKS;
     
     @Override
     public void render(GuiGraphics guiGraphics, DeltaTracker deltaTracker) {
@@ -27,14 +34,21 @@ public class WeightHudOverlay implements LayeredDraw.Layer {
             return;
         }
         
-        // Calculate player weight
-        double currentWeight = WeightManager.calculatePlayerWeight(player);
+        if (player.tickCount < cachedTick || player.tickCount - cachedTick >= REFRESH_TICKS) {
+            cachedWeight = WeightManager.getClientWeight(player);
+            cachedTick = player.tickCount;
+        }
+        double currentWeight = cachedWeight;
         WeightData.WeightStatus status = WeightRegistry.getWeightStatus(currentWeight);
         WeightData.WeightThresholds thresholds = WeightRegistry.getThresholds();
         
         // Position from datapack hud config: anchor corner + pixel offsets.
         // Offsets always push the indicator INWARD from the chosen corner.
         WeightData.HudConfig hud = WeightRegistry.getHudConfig();
+
+        // Widen the box when the number (decimals from the display config) does not fit
+        String weightText = WeightRegistry.getDisplayConfig().formatNumber(currentWeight);
+        int width = Math.max(INDICATOR_WIDTH, mc.font.width(weightText) + TEXT_PADDING * 2 + 2);
         int screenHeight = mc.getWindow().getGuiScaledHeight();
         int screenWidth = mc.getWindow().getGuiScaledWidth();
 
@@ -42,27 +56,26 @@ public class WeightHudOverlay implements LayeredDraw.Layer {
         boolean top = hud.getPosition().startsWith("top");
 
         int x = right
-            ? screenWidth - INDICATOR_WIDTH - MARGIN - hud.getXOffset()
+            ? screenWidth - width - MARGIN - hud.getXOffset()
             : MARGIN + hud.getXOffset();
         int y = top
             ? MARGIN + hud.getYOffset()
             : screenHeight - INDICATOR_HEIGHT - MARGIN - hud.getYOffset();
         
         // Draw background box
-        guiGraphics.fill(x, y, x + INDICATOR_WIDTH, y + INDICATOR_HEIGHT, 0xAA000000);
+        guiGraphics.fill(x, y, x + width, y + INDICATOR_HEIGHT, 0xAA000000);
         
         // Draw colored weight indicator bar (fills from bottom to top)
         int barHeight = (int) (INDICATOR_HEIGHT * getWeightPercentage(currentWeight, thresholds));
         int barY = y + INDICATOR_HEIGHT - barHeight;
         int color = status.getColor() | 0xFF000000; // Add alpha
-        guiGraphics.fill(x + 1, barY, x + INDICATOR_WIDTH - 1, y + INDICATOR_HEIGHT - 1, color);
+        guiGraphics.fill(x + 1, barY, x + width - 1, y + INDICATOR_HEIGHT - 1, color);
         
         // Draw border
-        drawBorder(guiGraphics, x, y, INDICATOR_WIDTH, INDICATOR_HEIGHT, 0xFFFFFFFF);
+        drawBorder(guiGraphics, x, y, width, INDICATOR_HEIGHT, 0xFFFFFFFF);
         
         // Draw weight text (centered)
-        String weightText = String.format("%.0f", currentWeight);
-        int textX = x + (INDICATOR_WIDTH - mc.font.width(weightText)) / 2;
+        int textX = x + (width - mc.font.width(weightText)) / 2;
         int textY = y + INDICATOR_HEIGHT / 2 - 4;
         
         // Draw text with shadow
@@ -72,7 +85,7 @@ public class WeightHudOverlay implements LayeredDraw.Layer {
         // Draw compact status indicator (just a colored dot or small text at top)
         String statusLabel = getStatusLabel(status);
         int labelWidth = mc.font.width(statusLabel);
-        int labelX = x + (INDICATOR_WIDTH - labelWidth) / 2;
+        int labelX = x + (width - labelWidth) / 2;
         int labelY = y + 2;
         guiGraphics.drawString(mc.font, statusLabel, labelX, labelY, color, false);
     }

@@ -12,7 +12,10 @@ import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.server.packs.resources.SimpleJsonResourceReloadListener;
 import net.minecraft.tags.TagKey;
 import net.minecraft.util.profiling.ProfilerFiller;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.Block;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,7 +34,7 @@ public class WeightDataLoader extends SimpleJsonResourceReloadListener {
     // Raw (unexpanded) config kept so tag entries can be (re)resolved once
     // tags are actually bound to the registry. During a datapack reload this
     // listener runs BEFORE tags are bound, so expanding tags here would
-    // resolve against stale/empty tag data and items would fall back to 1.0.
+    // resolve against stale/empty tag data and items would fall back to the default weight.
     private static WeightData pendingRawData;
 
     public WeightDataLoader() {
@@ -98,47 +101,97 @@ public class WeightDataLoader extends SimpleJsonResourceReloadListener {
     }
 
     /**
-     * Expands "#namespace:path" item tag entries in item_weights into their
-     * concrete item ids. Specific item entries always take precedence over
-     * tag-derived weights.
+     * Expands "#namespace:path" tag entries into concrete ids. Specific entries
+     * always take precedence over tag-derived weights.
+     *
+     * Item weight tags are looked up as item tags first; if no such item tag
+     * exists they fall back to block tags (e.g. "#minecraft:mineable/pickaxe"),
+     * applied to the items of those blocks. Entity weight tags are entity type tags.
      */
     private static WeightData expandTags(WeightData data) {
-        Map<String, Double> rawWeights = data.getItemWeights();
+        Map<String, Double> items = expand(data.getItemWeights(), "item", WeightDataLoader::resolveItemTag);
+        Map<String, Double> entities = expand(data.getEntityWeights(), "entity", WeightDataLoader::resolveEntityTag);
+        return data.withResolvedWeights(items, entities);
+    }
+
+    private static Map<String, Double> expand(Map<String, Double> raw, String kind,
+                                              java.util.function.Function<ResourceLocation, java.util.List<ResourceLocation>> tagResolver) {
         Map<String, Double> resolved = new HashMap<>();
 
-        // Direct item entries first, so they win over tag entries
-        for (Map.Entry<String, Double> entry : rawWeights.entrySet()) {
-            if (!entry.getKey().startsWith("#")) {
-                resolved.put(entry.getKey(), entry.getValue());
+        // Direct entries first, so they win over tag entries
+        for (Map.Entry<String, Double> entry : raw.entrySet()) {
+            String key = entry.getKey().trim();
+            if (key.startsWith("#")) {
+                continue;
             }
+            ResourceLocation id = ResourceLocation.tryParse(key);
+            if (id == null) {
+                LOGGER.warn("Invalid {} id '{}' in weight configuration", kind, key);
+                continue;
+            }
+            resolved.put(id.toString(), entry.getValue());
         }
 
-        for (Map.Entry<String, Double> entry : rawWeights.entrySet()) {
-            String key = entry.getKey();
+        for (Map.Entry<String, Double> entry : raw.entrySet()) {
+            String key = entry.getKey().trim();
             if (!key.startsWith("#")) {
                 continue;
             }
 
             ResourceLocation tagId = ResourceLocation.tryParse(key.substring(1));
             if (tagId == null) {
-                LOGGER.warn("Invalid item tag '{}' in weight configuration", key);
+                LOGGER.warn("Invalid {} tag '{}' in weight configuration", kind, key);
                 continue;
             }
 
-            TagKey<Item> tagKey = TagKey.create(Registries.ITEM, tagId);
-            var tag = BuiltInRegistries.ITEM.getTag(tagKey);
-            if (tag.isEmpty()) {
-                LOGGER.warn("Unknown item tag '{}' in weight configuration", key);
+            java.util.List<ResourceLocation> members = tagResolver.apply(tagId);
+            if (members == null) {
+                LOGGER.warn("Unknown {} tag '{}' in weight configuration", kind, key);
                 continue;
             }
-
-            for (Holder<Item> itemHolder : tag.get()) {
-                ResourceLocation itemId = BuiltInRegistries.ITEM.getKey(itemHolder.value());
-                resolved.putIfAbsent(itemId.toString(), entry.getValue());
+            for (ResourceLocation member : members) {
+                resolved.putIfAbsent(member.toString(), entry.getValue());
             }
         }
+        return resolved;
+    }
 
-        return new WeightData(resolved, data.getThresholds(), data.getDebuffs(), data.getWeightMultiplier(), data.isSmoothTransition(), data.getHudConfig());
+    /** Item tag members, or the items of a block tag with that id; null if neither tag exists. */
+    private static java.util.List<ResourceLocation> resolveItemTag(ResourceLocation tagId) {
+        var itemTag = BuiltInRegistries.ITEM.getTag(TagKey.create(Registries.ITEM, tagId));
+        if (itemTag.isPresent()) {
+            java.util.List<ResourceLocation> ids = new java.util.ArrayList<>();
+            for (Holder<Item> holder : itemTag.get()) {
+                ids.add(BuiltInRegistries.ITEM.getKey(holder.value()));
+            }
+            return ids;
+        }
+
+        var blockTag = BuiltInRegistries.BLOCK.getTag(TagKey.create(Registries.BLOCK, tagId));
+        if (blockTag.isPresent()) {
+            java.util.List<ResourceLocation> ids = new java.util.ArrayList<>();
+            for (Holder<Block> holder : blockTag.get()) {
+                Item item = holder.value().asItem();
+                if (item != Items.AIR) {
+                    ids.add(BuiltInRegistries.ITEM.getKey(item));
+                }
+            }
+            return ids;
+        }
+        return null;
+    }
+
+    /** Entity type tag members; null if the tag does not exist. */
+    private static java.util.List<ResourceLocation> resolveEntityTag(ResourceLocation tagId) {
+        var tag = BuiltInRegistries.ENTITY_TYPE.getTag(TagKey.create(Registries.ENTITY_TYPE, tagId));
+        if (tag.isEmpty()) {
+            return null;
+        }
+        java.util.List<ResourceLocation> ids = new java.util.ArrayList<>();
+        for (Holder<EntityType<?>> holder : tag.get()) {
+            ids.add(BuiltInRegistries.ENTITY_TYPE.getKey(holder.value()));
+        }
+        return ids;
     }
 
     /**

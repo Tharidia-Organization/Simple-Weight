@@ -1,16 +1,19 @@
 package com.THproject.tharidia_simpleweight.event;
 
 import com.THproject.tharidia_simpleweight.TharidiaSimpleWeight;
+import com.THproject.tharidia_simpleweight.network.PlayerWeightSyncPayload;
 import com.THproject.tharidia_simpleweight.network.TestModeSyncPayload;
 import com.THproject.tharidia_simpleweight.weight.WeightData;
 import com.THproject.tharidia_simpleweight.weight.WeightManager;
 import com.THproject.tharidia_simpleweight.weight.WeightRegistry;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.tags.FluidTags;
 import net.neoforged.neoforge.event.entity.living.LivingEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.event.tick.EntityTickEvent;
@@ -27,61 +30,60 @@ public class WeightDebuffHandler {
     private static final ResourceLocation WEIGHT_SPEED_MODIFIER_ID =
             ResourceLocation.fromNamespaceAndPath(TharidiaSimpleWeight.MODID, "weight_speed_penalty");
 
-    // LARGE SERVER OPTIMIZATION: Stagger player processing to distribute load
-    // Process only 1/5th of players per tick for weight updates
-    private static final int PLAYER_BATCH_SIZE = 5;
+    // Last weight sent to each player's client, to only sync on change
+    private static final java.util.Map<java.util.UUID, Double> LAST_SYNCED_WEIGHT = new java.util.concurrent.ConcurrentHashMap<>();
 
     /**
-     * Apply speed debuff based on weight
-     * LARGE SERVER: Uses player batching to distribute load
+     * Once per second: recalculates the player's weight, syncs it to their
+     * client (for the HUD and client-side movement checks) and applies the
+     * speed debuff. Players are spread over the 20 ticks of each second by
+     * UUID so a full server does not recalculate everyone on the same tick.
      */
     @SubscribeEvent
     public static void onPlayerTick(EntityTickEvent.Pre event) {
-        if (!(event.getEntity() instanceof Player player)) {
+        if (!(event.getEntity() instanceof ServerPlayer player)) {
             return;
         }
 
-        // Only update every 20 ticks (1 second) to reduce performance impact
-        if (player.tickCount % 20 != 0) {
+        if ((player.tickCount + (player.getUUID().hashCode() & 0x7FFFFFFF)) % 20 != 0) {
             return;
         }
 
-        // LARGE SERVER OPTIMIZATION: Process players in staggered batches
-        int playerBatch = Math.abs(player.getUUID().hashCode() % PLAYER_BATCH_SIZE);
-        if ((player.tickCount / 20) % PLAYER_BATCH_SIZE != playerBatch) {
-            return; // Not this player's turn this second
+        // 0 for masters (OPs not in test mode)
+        double weight = WeightManager.calculatePlayerWeight(player);
+        Double lastSynced = LAST_SYNCED_WEIGHT.get(player.getUUID());
+        if (lastSynced == null || Math.abs(lastSynced - weight) > 1.0E-4) {
+            LAST_SYNCED_WEIGHT.put(player.getUUID(), weight);
+            PacketDistributor.sendToPlayer(player, new PlayerWeightSyncPayload(weight));
         }
 
-        // Server-side only
-        if (player.level().isClientSide) {
-            return;
-        }
-
-        // Masters bypass weight system
         if (WeightManager.isMaster(player)) {
-            // Remove any existing weight modifiers for masters
             removeWeightModifier(player);
             return;
         }
-
-        applyWeightDebuffs(player);
+        applyWeightDebuffs(player, weight);
     }
 
     /**
-     * Prevent swimming up when heavy/overencumbered.
-     * Runs every tick on BOTH sides: the client is authoritative for its own
-     * movement, so blocking only on the server let the space bar still float
-     * the player upward. Jumping while standing on the bottom / shoreline is
-     * still allowed (onGround check). Cheap thanks to the cached weight status.
+     * Prevents swimming upward when heavy/overencumbered. Called from
+     * LivingEntityMixin at the start of travel(), on BOTH sides (the client is
+     * authoritative for its own movement), so it sees the vertical speed after
+     * every upward push of the tick has been applied: the space-bar swim boost,
+     * sprint-swimming while looking up and the previous tick's wall-climb boost.
+     * Players wading in shallow water (head above the surface, feet on the
+     * bottom or pushing against the bank) can still climb out; staying afloat
+     * at the surface of deep water is blocked like any other upward swim.
      */
-    @SubscribeEvent
-    public static void onPlayerSwim(EntityTickEvent.Pre event) {
-        if (!(event.getEntity() instanceof Player player)) {
+    public static void limitSwimUp(Player player) {
+        if (!player.isInWater()) {
+            return;
+        }
+        if (!player.isEyeInFluid(FluidTags.WATER) && (player.onGround() || player.horizontalCollision)) {
             return;
         }
 
-        // Only relevant while actually in water and not standing on the bottom
-        if (!player.isInWater() || player.onGround()) {
+        var delta = player.getDeltaMovement();
+        if (delta.y <= 0) {
             return;
         }
 
@@ -91,10 +93,7 @@ public class WeightDebuffHandler {
 
         WeightData.WeightStatus status = WeightManager.getCachedWeightStatus(player);
         if (WeightRegistry.getDebuffs().isSwimUpDisabled(status)) {
-            // Prevent upward movement in water
-            if (player.getDeltaMovement().y > 0) {
-                player.setDeltaMovement(player.getDeltaMovement().multiply(1, 0, 1));
-            }
+            player.setDeltaMovement(delta.x, 0.0, delta.z);
         }
     }
 
@@ -157,13 +156,14 @@ public class WeightDebuffHandler {
         removeWeightModifier(player);
         if (player instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
             WeightManager.clearTestMode(serverPlayer);
+            LAST_SYNCED_WEIGHT.remove(serverPlayer.getUUID());
         }
     }
 
     /**
      * Apply weight-based speed debuffs
      */
-    private static void applyWeightDebuffs(Player player) {
+    private static void applyWeightDebuffs(Player player, double weight) {
         AttributeInstance movementSpeed = player.getAttribute(Attributes.MOVEMENT_SPEED);
         if (movementSpeed == null) {
             return;
@@ -173,7 +173,7 @@ public class WeightDebuffHandler {
         removeWeightModifier(player);
 
         // Calculate speed multiplier based on weight
-        double speedMultiplier = WeightManager.getSpeedMultiplier(player);
+        double speedMultiplier = WeightRegistry.getSpeedMultiplier(weight);
 
         // Only apply modifier if speed is reduced
         if (speedMultiplier < 1.0) {
