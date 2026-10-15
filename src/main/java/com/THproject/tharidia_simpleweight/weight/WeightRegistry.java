@@ -103,10 +103,8 @@ public class WeightRegistry {
      * Gets the global weight multiplier applied to total carried weight
      */
     public static double getWeightMultiplier() {
-        if (weightData == null) {
-            return 1.0;
-        }
-        return weightData.getWeightMultiplier();
+        double datapackMultiplier = weightData == null ? 1.0 : weightData.getWeightMultiplier();
+        return datapackMultiplier * com.THproject.tharidia_simpleweight.WeightConfig.globalWeightMultiplier();
     }
 
     /**

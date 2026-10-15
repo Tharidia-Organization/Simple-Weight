@@ -27,6 +27,12 @@ public class TharidiaSimpleWeightClient {
     }
 
     @SubscribeEvent
+    static void onLoggingOut(net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent.LoggingOut event) {
+        // Forget the previous server's synced weight and test mode
+        com.THproject.tharidia_simpleweight.weight.WeightManager.clearClientState();
+    }
+
+    @SubscribeEvent
     static void onRegisterGuiLayers(RegisterGuiLayersEvent event) {
         // Register the weight HUD overlay in the lower left corner
         event.registerAbove(

@@ -32,7 +32,7 @@ The Tharidia Project consists of multiple interconnected mods that work together
 - Uses Minecraft's attribute system for smooth, compatible speed modifications
 
 #### 🎒 **Container Contents**
-- Items stored inside carried containers count too: backpacks exposing an item handler (Sophisticated Backpacks, L2 Backpack...), shulker boxes, bundles and Supplementaries quivers, also when worn in Curios/Accessories slots
+- Items stored inside carried containers count too: backpacks (tested with Sophisticated Backpacks and L2 Backpack, including backpacks inside backpacks), shulker boxes, bundles and Supplementaries quivers, also when worn in Curios/Accessories slots
 - Packed Simply Tents tents count the blocks, chest contents and entities packed inside them
 - Blocks (with their contents) and entities carried with Carry On count as well
 - All these integrations are optional: none of these mods is required
@@ -91,6 +91,17 @@ The mod comes with default weight values for common items:
 - **Medium Items** (2.0 weight): Iron ingots, Gold ingots
 - **Light Items** (0.5 weight): Diamonds, Emeralds
 - **Very Light Items** (0.1 weight): Most other items
+
+### Global Weight Multiplier (no datapack needed)
+
+`config/tharidia_simpleweight-server.toml` (created on first start, synced to clients, reloaded live when edited):
+
+```toml
+# Below 1.0 makes everything lighter, above 1.0 heavier
+globalWeightMultiplier = 1.0
+```
+
+It multiplies every carried weight, on top of the datapack's `weight_multiplier`. In singleplayer it can also be changed from the Mods screen > Simple Weight > Config.
 
 ### Custom Datapack Configuration
 
@@ -318,6 +329,8 @@ This mod is part of the Tharidia Project. Please respect the project's licensing
 - Contents of shulker boxes, bundles and Supplementaries quivers are counted, also in Curios slots
 - Simply Tents packed tents and Carry On loads are counted (`entity_weights` for entities)
 - `/weight check [player]`; tooltips show stack totals and contents weight
+- `globalWeightMultiplier` in the server config makes everything lighter or heavier without a datapack
+- The HUD shows the weight computed by the server, so it includes contents only the server knows (e.g. Sophisticated Backpacks)
 - Removed unused bundled libraries (MySQL, HikariCP, JLayer, VLCJ) from the jar
 
 ### 0.1.0-alpha

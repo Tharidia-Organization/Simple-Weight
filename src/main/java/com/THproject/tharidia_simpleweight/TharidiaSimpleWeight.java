@@ -31,6 +31,8 @@ public class TharidiaSimpleWeight {
         // Register the /weight command
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.register(com.THproject.tharidia_simpleweight.command.WeightCommand.class);
 
+        modContainer.registerConfig(net.neoforged.fml.config.ModConfig.Type.SERVER, WeightConfig.SPEC);
+
         // Register network payloads
         modEventBus.addListener(this::registerPayloads);
 
@@ -44,12 +46,18 @@ public class TharidiaSimpleWeight {
     }
 
     private void registerPayloads(RegisterPayloadHandlersEvent event) {
-        PayloadRegistrar registrar = event.registrar(MODID).versioned("3");
+        PayloadRegistrar registrar = event.registrar(MODID).versioned("4");
         registrar.playToClient(
                 WeightConfigSyncPayload.TYPE,
                 WeightConfigSyncPayload.STREAM_CODEC,
                 (payload, context) -> context.enqueueWork(() ->
                         com.THproject.tharidia_simpleweight.weight.WeightRegistry.setWeightData(payload.weightData()))
+        );
+        registrar.playToClient(
+                com.THproject.tharidia_simpleweight.network.PlayerWeightSyncPayload.TYPE,
+                com.THproject.tharidia_simpleweight.network.PlayerWeightSyncPayload.STREAM_CODEC,
+                (payload, context) -> context.enqueueWork(() ->
+                        com.THproject.tharidia_simpleweight.weight.WeightManager.setClientSyncedWeight(payload.weight()))
         );
         registrar.playToClient(
                 com.THproject.tharidia_simpleweight.network.TestModeSyncPayload.TYPE,

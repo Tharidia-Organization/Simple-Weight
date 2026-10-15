@@ -35,7 +35,7 @@ public class WeightHudOverlay implements LayeredDraw.Layer {
         }
         
         if (player.tickCount < cachedTick || player.tickCount - cachedTick >= REFRESH_TICKS) {
-            cachedWeight = WeightManager.calculatePlayerWeight(player);
+            cachedWeight = WeightManager.getClientWeight(player);
             cachedTick = player.tickCount;
         }
         double currentWeight = cachedWeight;

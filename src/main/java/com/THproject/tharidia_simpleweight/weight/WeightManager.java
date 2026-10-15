@@ -35,6 +35,23 @@ public class WeightManager {
         return clientTestMode;
     }
 
+    // Client-side copy of the local player's weight as computed by the server
+    // (synced via PlayerWeightSyncPayload); negative until the first sync
+    private static volatile double clientSyncedWeight = -1.0;
+
+    public static void setClientSyncedWeight(double weight) {
+        clientSyncedWeight = weight;
+    }
+
+    /**
+     * Weight to show/use on the client: the server's value when available
+     * (it sees server-only contents such as Sophisticated Backpacks storage),
+     * otherwise a local calculation.
+     */
+    public static double getClientWeight(Player player) {
+        return player.isLocalPlayer() && clientSyncedWeight >= 0 ? clientSyncedWeight : calculatePlayerWeight(player);
+    }
+
     /**
      * Checks if a player should be exempt from weight restrictions
      * Masters (OP level 2+) are exempt from weight, unless they enabled test mode
@@ -88,6 +105,12 @@ public class WeightManager {
      * Clears in-memory test mode state (e.g. on logout). The persisted
      * preference is kept so it can be restored on the next login.
      */
+    public static void clearClientState() {
+        clientSyncedWeight = -1.0;
+        clientTestMode = false;
+        CLIENT_STATUS_CACHE.clear();
+    }
+
     public static void clearTestMode(ServerPlayer player) {
         TEST_MODE_PLAYERS.remove(player.getUUID());
         SERVER_STATUS_CACHE.remove(player.getUUID());
@@ -284,23 +307,7 @@ public class WeightManager {
      * Gets the weight status for a player
      */
     public static WeightData.WeightStatus getPlayerWeightStatus(Player player) {
-        double weight = calculatePlayerWeight(player);
+        double weight = player.level().isClientSide ? getClientWeight(player) : calculatePlayerWeight(player);
         return WeightRegistry.getWeightStatus(weight);
-    }
-    
-    /**
-     * Gets the speed multiplier for a player based on their weight
-     */
-    public static double getSpeedMultiplier(Player player) {
-        double weight = calculatePlayerWeight(player);
-        return WeightRegistry.getSpeedMultiplier(weight);
-    }
-    
-    /**
-     * Checks if a player should be unable to swim up
-     */
-    public static boolean isSwimUpDisabled(Player player) {
-        WeightData.WeightStatus status = getPlayerWeightStatus(player);
-        return WeightRegistry.getDebuffs().isSwimUpDisabled(status);
     }
 }
